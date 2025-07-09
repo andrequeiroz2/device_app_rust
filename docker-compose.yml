@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  db:
+    image: bitnami/postgresql:latest
+    container_name: device-postgres
+    restart: always
+    ports:
+      - '5432:5432'
+
+    environment:
+      - POSTGRES_DB=deviceDB
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=labPW
+    
+    volumes:
+#      - './init.sql:/docker-entrypoint-initdb.d/init.sql'
+      - 'device_data:/bitnami/postgresql'
+      
+
+volumes: # Define the named volumes
+  device_data:
+
+networks: # Define the custom network
+  device_network:
+    name: 'device_network'
+    driver: bridge

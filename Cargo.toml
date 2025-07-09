@@ -1,0 +1,40 @@
+[package]
+name = "device_app"
+version = "0.1.0"
+edition = "2024"
+authors = ["Andre Queiroz <andrequeiroz.com@gmail.com>"]
+
+[dependencies]
+
+#Actix web framework and run-time
+actix-web = "4.11.0"
+actix-rt = "2.10.0"
+
+#Environment variable
+dotenv = "0.15.0"
+
+#MySql access library
+sqlx = { version = "0.8.6", features = [ "runtime-tokio", "postgres", "macros", "chrono", "uuid"] }
+
+# Openssl for build (if openssl is not already installed on the dev server)
+openssl = { version = "0.10.71", features = ["vendored"] }
+
+# Data serialization librar
+serde = { version = "1.0.219", features = ["derive"] }
+
+chrono = {version = "0.4.41", features = ["serde"]}
+
+# Data Log
+log = "0.4.27"
+log4rs = "1.4.0-rc2"
+
+# Data hash
+scrypt = "0.11.0"
+
+[dependencies.uuid]
+version = "1.17.0"
+# Lets you generate random UUIDs
+features = [
+    "v4",
+    "serde"
+]
