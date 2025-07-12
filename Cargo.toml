@@ -19,7 +19,7 @@ sqlx = { version = "0.8.6", features = [ "runtime-tokio", "postgres", "macros", 
 # Openssl for build (if openssl is not already installed on the dev server)
 openssl = { version = "0.10.71", features = ["vendored"] }
 
-# Data serialization librar
+# Data serialization library
 serde = { version = "1.0.219", features = ["derive"] }
 
 chrono = {version = "0.4.41", features = ["serde"]}
@@ -30,6 +30,14 @@ log4rs = "1.4.0-rc2"
 
 # Data hash
 scrypt = "0.11.0"
+
+# Data My jsonwebtoken
+jwt_lib = { git = "https://github.com/andrequeiroz2/lib_jwt"}
+
+# lazy_static library
+once_cell = "1.21.3"
+
+serde_json = "1.0.140"
 
 [dependencies.uuid]
 version = "1.17.0"

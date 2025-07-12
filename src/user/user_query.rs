@@ -1,6 +1,7 @@
+use std::fmt::format;
 use sqlx::{PgPool, QueryBuilder};
 use crate::error_app::error_app::{AppError, AppMsgError};
-use crate::user::user_model::{UserCreate, UserFilter, UserResponse};
+use crate::user::user_model::{User, UserCreate, UserFilter, UserResponse};
 use uuid::Uuid;
 
 pub async fn user_count(
@@ -68,6 +69,33 @@ pub async fn get_user(
     };
 
     Ok(result)
+}
+
+pub async fn get_user_full_row(
+    pool: &PgPool,
+    email: &String,
+) -> Result<User, AppError>{
+
+    match sqlx::query_as!(
+        User,
+        r#"
+            SELECT id, uuid, username, password, email, created_at, updated_at, deleted_at
+            FROM users
+            WHERE deleted_at IS NULL AND email = $1
+            "#,
+        email,
+    ).fetch_one(pool)
+        .await {
+        Ok(result) => Ok(result),
+        Err(err) => Err(
+            AppError::NotFound(
+                AppMsgError{
+                    api_msg_error: "User not found".to_string(),
+                    log_msg_error: format!("{}, email: {}", err, email)
+                }
+            )
+        )?
+    }
 }
 
 pub async fn get_user_by_uuid(

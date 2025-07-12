@@ -3,7 +3,7 @@ use serde::Serialize;
 use log::error;
 use std::fmt;
 use sqlx::error::Error as SQLxError;
-
+use jwt_lib::error::AuthError;
 
 #[derive(Debug, Serialize)]
 pub struct AppMsgError {
@@ -19,7 +19,10 @@ pub enum AppError{
     UnprocessableEntity(AppMsgError),
     DBError(String),
     ActixError(String),
-    ScryptError(AppMsgError)
+    ScryptError(AppMsgError),
+    Unauthorized(AppMsgError),
+    AuthError(AppMsgError),
+    InternalServerError(String),
 }
 
 #[derive(Debug, Serialize)]
@@ -64,6 +67,21 @@ impl AppError{
                 error!("Scrypt error occurred: {}", msg.log_msg_error);
                 msg.api_msg_error.clone()
             }
+
+            AppError::Unauthorized(ms)=> {
+                error!("Unauthorized error occurred: {}", ms.log_msg_error);
+                "Unauthorized".into()
+            }
+
+            AppError::AuthError(msg) => {
+                error!("Auth error occurred: {}", msg.log_msg_error);
+                "Auth error".into()
+            }
+
+            AppError::InternalServerError(msg) => {
+                error!("Internal server error occurred: {}", msg);
+                "Internal server error".into()
+            }
         }
     }
 }
@@ -75,6 +93,7 @@ impl error::ResponseError for AppError {
             AppError::NotFound(_msg)=>StatusCode::NOT_FOUND,
             AppError::ConstraintViolation(_msg)=>StatusCode::CONFLICT,
             AppError::UnprocessableEntity(_msg)=>StatusCode::UNPROCESSABLE_ENTITY,
+            AppError::Unauthorized(_msg)=>StatusCode::UNAUTHORIZED,
             _ => StatusCode::INTERNAL_SERVER_ERROR
         }
     }
@@ -100,5 +119,16 @@ impl From<actix_web::error::Error> for AppError {
 impl From<SQLxError> for AppError{
     fn from(err: SQLxError)-> Self{
         AppError::DBError(err.to_string())
+    }
+}
+
+impl From<AuthError> for AppError{
+    fn from(err: AuthError)-> Self{
+        AppError::AuthError(
+            AppMsgError{
+                api_msg_error: "Internal server error".into(),
+                log_msg_error: err.to_string()
+            }
+        )
     }
 }
