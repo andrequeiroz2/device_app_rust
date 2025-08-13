@@ -12,7 +12,6 @@ use health_check::health_check_cfg::health_check_cfg;
 use auth::auth_route::auth_cfg;
 use user::user_route::user_cfg;
 use auth::auth_config::AuthConfig;
-use crate::auth::auth_config;
 
 #[actix_rt::main]
 async fn main()-> io::Result<()> {

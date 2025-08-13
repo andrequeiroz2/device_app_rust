@@ -1,13 +1,17 @@
 use actix_web::{web, HttpResponse};
+use log::info;
 use crate::error_app::error_app::{AppError, AppMsgError};
 use uuid::Uuid;
+use web::Json;
 use crate::state::AppState;
 use crate::user::user_model::{UserCreate, UserFilter, UserUpdate};
-use crate::user::user_query::{delete_user, get_user, get_user_by_uuid, post_user_query, update_user, user_count};
+use crate::user::user_query::{delete_user, get_user, get_user_by_uuid, get_user_full_row, post_user_query, update_user, user_count};
 use crate::user::user_tool::get_password_hash;
+use crate::auth::auth_model::LoginRequest;
+use crate::auth::auth_tool::verify_password;
 
 pub async fn user_create(
-    user: web::Json<UserCreate>,
+    user: Json<UserCreate>,
     app_state: web::Data<AppState>
 ) -> Result<HttpResponse, AppError>{
 
@@ -77,20 +81,35 @@ pub async fn user_get_filter(
 
 pub async fn user_soft_delete(
     user_uuid: web::Path<Uuid>,
+    login: Json<LoginRequest>,
     app_state: web::Data<AppState>
 ) -> Result<HttpResponse, AppError>{
 
+
+    let login = login.into_inner();
     let user_uuid = user_uuid.into_inner();
 
-    let filter = UserFilter{
-        uuid: Some(user_uuid),
-        email: None,
-    };
+    info!("user_soft_delete, login: {:?}, user_uuid: {}", login, user_uuid);
 
-    match get_user(&app_state.db, &filter).await{
+    let user = match get_user_full_row(&app_state.db, &login.email).await{
         Ok(user) => user,
         Err(e) => Err(e)?
     };
+
+    info!("user_soft_delete, user: {:?}", user);
+
+    match verify_password(&login.password, &user.password) {
+        Ok(result) => result,
+        Err(err) => Err(err)?
+    };
+
+    if user.uuid != user_uuid{
+        Err(
+            AppError::BadRequest(
+                "Inconsistent data".to_string()
+            )
+        )?
+    }
 
     delete_user(&app_state.db, &user_uuid)
         .await
@@ -99,7 +118,7 @@ pub async fn user_soft_delete(
 
 pub async fn user_update(
     user_uuid: web::Path<Uuid>,
-    user: web::Json<UserUpdate>,
+    user: Json<UserUpdate>,
     app_state: web::Data<AppState>
 ) -> Result<HttpResponse, AppError>{
 

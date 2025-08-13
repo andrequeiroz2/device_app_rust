@@ -1,4 +1,3 @@
-use std::fmt::format;
 use sqlx::{PgPool, QueryBuilder};
 use crate::error_app::error_app::{AppError, AppMsgError};
 use crate::user::user_model::{User, UserCreate, UserFilter, UserResponse};
