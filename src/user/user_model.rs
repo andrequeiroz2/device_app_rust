@@ -81,7 +81,6 @@ impl UserUpdate {
     pub fn is_empty(&self) -> bool {
         self.username.is_none() && self.email.is_none()
     }
-
     pub fn username(&self) -> Option<&String> {
         self.username.as_ref()
     }

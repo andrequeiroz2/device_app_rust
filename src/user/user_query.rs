@@ -152,7 +152,7 @@ pub async fn post_user_query(
                     log_msg_error: e.to_string()
                 }
             )
-        )
+        )?
     }
 }
 
