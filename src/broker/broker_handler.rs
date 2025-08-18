@@ -1,17 +1,18 @@
 use actix_web::{web, HttpResponse};
 use uuid::Uuid;
 use web::Json;
-use crate::broker::broker_model::{BrokerCreate, BrokerFilter, BrokerUpdate};
+use crate::broker::broker_model::{BrokerCreate, BrokerFilter, BrokerResponse, BrokerUpdate};
 use crate::broker::broker_query::{
-    delete_broker_query, 
-    get_broker_query, 
-    get_broker_update_check_query, 
-    get_broker_with_uuid_query, 
-    post_broker_query, 
+    delete_broker_query,
+    get_broker_query,
+    get_broker_update_check_query,
+    get_broker_with_uuid_query,
+    post_broker_query,
     put_broker_query
 };
 use crate::error_app::error_app::AppError;
 use crate::state::AppState;
+use crate::broker::broker_connection;
 
 pub async fn broker_create(
     broker: Json<BrokerCreate>,
@@ -54,7 +55,7 @@ pub async fn broker_update(
     broker_update: Json<BrokerUpdate>,
     app_state: web::Data<AppState>
 )-> Result<HttpResponse, AppError>{
-    
+
     let broker_uuid = broker_uuid.into_inner();
 
     let broker = match get_broker_with_uuid_query(&app_state.db, &broker_uuid).await{
@@ -71,4 +72,26 @@ pub async fn broker_update(
     put_broker_query(&app_state.db, &broker_uuid, &broker_update)
         .await
         .map(|broker| HttpResponse::Ok().json(broker))
+}
+
+pub async fn broker_connection(
+    broker_uuid: web::Path<Uuid>,
+    app_state: web::Data<AppState>
+) -> Result<HttpResponse, AppError>{
+
+    let broker_uuid = broker_uuid.into_inner();
+
+    let broker = match get_broker_with_uuid_query(&app_state.db, &broker_uuid).await{
+        Ok(broker) => broker,
+        Err(e) => Err(e)?
+    };
+
+    if broker.connected{
+        return Ok(HttpResponse::NoContent().finish())
+    };
+    
+    match broker_connection::connect(&broker).await{
+        Ok(_) => Ok(HttpResponse::NoContent().finish()),
+        Err(err) => Err(AppError::DBError(err.to_string()))?
+    }
 }

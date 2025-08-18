@@ -5,6 +5,7 @@ mod error_app;
 mod user;
 mod auth;
 mod broker;
+pub mod device;
 
 use std::io;
 use actix_web::{App, HttpServer};
@@ -14,6 +15,7 @@ use auth::auth_route::auth_cfg;
 use user::user_route::user_cfg;
 use auth::auth_config::AuthConfig;
 use crate::broker::broker_route::broker_cfg;
+use crate::device::device_route::device_cfg;
 
 #[actix_web::main]
 async fn main()-> io::Result<()> {
@@ -38,6 +40,7 @@ async fn main()-> io::Result<()> {
             .configure(auth_cfg)
             .configure(user_cfg)
             .configure(broker_cfg)
+            .configure(device_cfg)
     };
 
     let host_address = std::env::var("HOST_ADDRESS")

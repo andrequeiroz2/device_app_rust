@@ -580,6 +580,7 @@ dependencies = [
  "actix-web",
  "chrono",
  "dotenv",
+ "futures",
  "jwt_lib",
  "log",
  "log4rs",
