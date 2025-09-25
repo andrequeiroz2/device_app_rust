@@ -20,11 +20,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 3. Trigger update updated_at
-CREATE TRIGGER set_updated_at
+CREATE TRIGGER set_updated_at_users
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION trigger_set_updated_at();
 
--- 4. Create index
-CREATE INDEX idx_users_email ON users (email);
-CREATE INDEX idx_users_uuid ON users (uuid);

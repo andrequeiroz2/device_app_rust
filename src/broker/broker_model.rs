@@ -3,6 +3,7 @@ use actix_web::web::Query;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use crate::paginate::paginate_model::{Pagination, PaginationFrom};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct LastWill{
@@ -87,6 +88,58 @@ pub struct BrokerResponse {
     pub deleted_at: Option<chrono::DateTime<Utc>>,
 }
 
+#[derive(Serialize)]
+pub struct BrokerPaginationResponse {
+    pub brokers: Vec<BrokerResponse>,
+    pub pagination: PaginationFrom,
+    pub total_count: i64,
+    pub total_pages: u32,
+    pub current_page: u32,
+    pub next_page: Option<i64>,
+    pub previous_page: Option<i64>,
+    pub first_page: u32,
+    pub last_page: u32,
+    pub has_next_page: bool,
+}
+
+impl BrokerPaginationResponse {
+    pub fn new(
+        brokers: Vec<BrokerResponse>,
+        total_count: i64,
+        page: u32,
+        page_size: u32,
+    ) -> Self {
+        let total_pages = ((total_count as f64) / (page_size as f64)).ceil() as u32;
+
+        let current_page = page.max(1).min(total_pages.max(1));
+
+        let next_page = if current_page < total_pages {
+            Some((current_page + 1) as i64)
+        } else {
+            None
+        };
+
+        let previous_page = if current_page > 1 {
+            Some((current_page - 1) as i64)
+        } else {
+            None
+        };
+
+        Self {
+            brokers,
+            pagination: PaginationFrom{ page: current_page, page_size },
+            total_count,
+            total_pages,
+            current_page,
+            next_page,
+            previous_page,
+            first_page: 1,
+            last_page: total_pages.max(1),
+            has_next_page: next_page.is_some(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BrokerFilter {
     pub id: Option<i32>,
@@ -94,16 +147,20 @@ pub struct BrokerFilter {
     pub host: Option<String>,
     pub port: Option<i32>,
     pub connected: Option<bool>,
+    #[serde(flatten)]
+    pub pagination: Pagination,
 }
 
 impl From<web::Query<BrokerFilter>> for BrokerFilter {
     fn from(filter: Query<BrokerFilter>) -> Self {
+
         BrokerFilter{
             id: filter.id,
             uuid: filter.uuid,
             host: filter.host.clone(),
             port: filter.port,
             connected: filter.connected,
+            pagination: filter.pagination.clone(),
         }
     }
 }

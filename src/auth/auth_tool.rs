@@ -1,6 +1,9 @@
+use jwt_lib::jwt_decode;
 use scrypt::password_hash::{PasswordHash, PasswordVerifier};
 use scrypt::Scrypt;
-use log::info;
+use log::{info, log};
+use crate::auth::auth_config::AuthConfig;
+use crate::auth::auth_model::{MyClaim, Token};
 use crate::error_app::error_app::{AppError, AppMsgError};
 
 pub fn verify_password(password: &str, password_hash: &str) -> Result<(), AppError>{
@@ -31,4 +34,51 @@ pub fn verify_password(password: &str, password_hash: &str) -> Result<(), AppErr
     } else {
         Ok(())
     }
+}
+
+pub async fn token_info(token: String) -> Result<Token, AppError>{
+
+    let algorithm = AuthConfig::get_algorithm();
+
+    let claim = match jwt_decode(algorithm, token.clone()){
+        Ok(claim)=> claim,
+        Err(err) => Err(
+            AppError::Unauthorized(
+                AppMsgError{
+                    api_msg_error: "Unauthorized".to_string(),
+                    log_msg_error: format!("file: {}, line: {}, {}, algorithm: {}, token: {}", file!(), line!(), err, algorithm, token),
+                }
+            )
+        )?
+    };
+
+
+    let claim_value = match serde_json::to_value(&claim){
+        Ok(result) => result,
+        Err(err) => {
+            return Err(AppError::Unauthorized(
+                AppMsgError {
+                    api_msg_error: "Unauthorized".to_string(),
+                    log_msg_error: format!("file: {}, line: {}, {}, algorithm: {}, token: {}", file!(), line!(), err, algorithm, token),
+                }
+            ))?;
+        }
+    };
+
+    let my_claim: MyClaim = match serde_json::from_value(claim_value){
+        Ok(result) => result,
+        Err(err) => {
+            return Err(AppError::Unauthorized(
+                AppMsgError {
+                    api_msg_error: "Unauthorized".to_string(),
+                    log_msg_error: format!("file: {}, line: {}, {}, algorithm: {}, token: {}", file!(), line!(), err, algorithm, token),
+                }
+            ))?;
+        }
+    };
+
+    Ok(
+        Token::build(my_claim)
+    )
+
 }

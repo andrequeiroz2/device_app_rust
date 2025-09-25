@@ -6,6 +6,8 @@ mod user;
 mod auth;
 mod broker;
 pub mod device;
+pub mod paginate;
+mod timezone;
 
 use std::io;
 use actix_web::{App, HttpServer};
@@ -16,6 +18,7 @@ use user::user_route::user_cfg;
 use auth::auth_config::AuthConfig;
 use crate::broker::broker_route::broker_cfg;
 use crate::device::device_route::device_cfg;
+use crate::timezone::timezone_route::timezone_cfg;
 
 #[actix_web::main]
 async fn main()-> io::Result<()> {
@@ -39,6 +42,7 @@ async fn main()-> io::Result<()> {
             .configure(health_check_cfg)
             .configure(auth_cfg)
             .configure(user_cfg)
+            .configure(timezone_cfg)
             .configure(broker_cfg)
             .configure(device_cfg)
     };

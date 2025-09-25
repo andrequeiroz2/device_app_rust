@@ -1,7 +1,8 @@
-use sqlx::{query_scalar, PgPool, Postgres, QueryBuilder};
+use sqlx::{query_scalar, PgPool, QueryBuilder};
 use uuid::Uuid;
-use crate::broker::broker_model::{BrokerCreate, BrokerFilter, BrokerResponse, BrokerUpdate};
+use crate::broker::broker_model::{BrokerCreate, BrokerFilter, BrokerPaginationResponse, BrokerResponse, BrokerUpdate};
 use crate::error_app::error_app::{AppError, AppMsgError};
+use crate::paginate::paginate_model::Pagination;
 
 pub async fn post_broker_query(
     pool: &PgPool,
@@ -70,7 +71,7 @@ pub async fn post_broker_query(
 pub async fn get_broker_query(
     pool: &PgPool,
     filter: &BrokerFilter,
-) -> Result<Vec<BrokerResponse>, AppError> {
+) -> Result<BrokerPaginationResponse, AppError> {
 
     let mut builder = QueryBuilder::new(
         "
@@ -117,12 +118,57 @@ pub async fn get_broker_query(
         builder.push(" AND connected = ").push_bind(connected);
     }
 
+    //Pagination
+    let page: String;
+    let page_size: String;
+
+    if filter.pagination.page.is_empty(){
+        page = "1".to_string();
+    }else{
+        page = filter.pagination.page.clone();
+    };
+
+    if filter.pagination.page_size.is_empty(){
+        page_size = "10".to_string();
+    }else{
+        page_size = filter.pagination.page_size.clone();
+    };
+
+    let pagination = match Pagination::new(
+        page,
+        page_size,
+    ){
+        Ok(result) => result,
+        Err(err) => Err(err)?
+    };
+
+    let offset = (pagination.page.saturating_sub(1) * pagination.page_size) as i64;
+
+    builder.push(" ORDER BY host ASC ");
+    builder.push(" LIMIT ").push_bind(pagination.page_size as i64);
+    builder.push(" OFFSET ").push_bind(offset);
+
     let query = builder.build_query_as::<BrokerResponse>();
 
-    match query.fetch_all(pool).await{
-        Ok(result) => Ok(result),
+    let brokers = match query.fetch_all(pool).await{
+        Ok(result) => result,
         Err(e) => Err(AppError::DBError(e.to_string()))?
-    }
+    };
+
+    let brokers_count = match get_broker_count_total_query(pool).await{
+        Ok(result) => result,
+        Err(e) => Err(e)?
+    };
+
+    let result = BrokerPaginationResponse::new(
+        brokers,
+        brokers_count,
+        pagination.page,
+        pagination.page_size
+    );
+
+    Ok(result)
+
 }
 
 pub async fn get_broker_with_uuid_query(
@@ -174,7 +220,7 @@ pub async fn delete_broker_query(
 ) -> Result<(), AppError> {
 
     match sqlx::query!(
-        "UPDATE brokers SET deleted_at = NOW() WHERE uuid = $1",
+        "DELETE FROM brokers WHERE uuid = $1",
         broker_uuid
     ).execute(pool)
         .await {
@@ -187,41 +233,27 @@ pub async fn get_broker_update_check_query(
     pool: &PgPool,
     broker_uuid: &Uuid,
     broker_update: &BrokerUpdate,
-)-> Result<(), AppError> {
+)-> Result<i64, AppError> {
 
-    let exists: Option<Uuid> = query_scalar!(
+    match query_scalar!(
         r#"
-        SELECT uuid
-        FROM brokers
+        SELECT COUNT(*) FROM brokers
         WHERE uuid <> $1
-          AND (
-                ($2::text IS NOT NULL AND host = $2)
-             OR ($3::int  IS NOT NULL AND port = $3)
-          )
-        LIMIT 1
+            AND port = $2
+            AND deleted_at IS NULL
         "#,
         broker_uuid,
-        broker_update.host,
         broker_update.port
-    ).fetch_optional(pool)
-        .await
-        .map_err(|e| AppError::DBError(e.to_string()))?;
-
-    if exists.is_some() {
-        Err(
-            AppError::ConstraintViolation(
-                AppMsgError{
-                    api_msg_error: "Host or Port already registered".to_string(),
-                    log_msg_error: format!(
-                        "Host or Port already registered, host: {:?}, port: {:?}",
-                        broker_update.host,
-                        broker_update.port
-                    )
+    ).fetch_one(pool)
+        .await{
+            Ok(result) =>{
+                match result {
+                    Some(result) => Ok(result),
+                    None => Ok(0)
                 }
-            )
-        )?
-    }
-    Ok(())
+            }
+            Err(e) => Err(AppError::DBError(e.to_string()))?
+        }
 }
 
 pub async fn put_broker_query(
@@ -280,4 +312,45 @@ pub async fn put_broker_query(
         Ok(result) => Ok(result),
         Err(e) => Err(AppError::DBError(e.to_string()))?
     }
+}
+
+pub async fn get_broker_count_query(
+    pool: &PgPool,
+    port: i32
+) -> Result<Option<i64>, AppError> {
+
+    match sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM brokers WHERE port = $1 AND deleted_at IS NULL",
+        port
+    ).fetch_one(pool)
+        .await {
+        Ok(result) => {
+            match result {
+                Some(count) => {
+                    if count == 0 {
+                        Ok(None)
+                    }else {
+                        Ok(Some(count))
+                    }
+                },
+                None => Ok(None),
+            }
+        },
+        Err(e) => Err(AppError::DBError(e.to_string()))?
+    }
+}
+
+pub async fn get_broker_count_total_query(pool: &PgPool) -> Result<i64, AppError> {
+    match sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM brokers WHERE deleted_at IS NULL"
+    ).fetch_one(pool)
+        .await{
+            Ok(result) => {
+                match result {
+                    Some(count) => Ok(count),
+                    None => Ok(0)
+                }
+            },
+            Err(error) => Err(AppError::DBError(error.to_string()))?
+        }
 }

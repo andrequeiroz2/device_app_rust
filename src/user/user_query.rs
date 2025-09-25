@@ -100,12 +100,12 @@ pub async fn get_user_full_row(
 pub async fn get_user_by_uuid(
     pool: &PgPool,
     user_uuid: &Uuid,
-) -> Result<UserResponse, AppError> {
+) -> Result<User, AppError> {
 
     match sqlx::query_as!(
-        UserResponse,
+        User,
         r#"
-            SELECT uuid, username, email
+            SELECT id, uuid, username, email, password, created_at, updated_at, deleted_at
             FROM users
             WHERE uuid = $1
             AND deleted_at IS NULL

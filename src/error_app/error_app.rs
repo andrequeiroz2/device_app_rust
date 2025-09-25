@@ -23,6 +23,7 @@ pub enum AppError{
     Unauthorized(AppMsgError),
     AuthError(AppMsgError),
     InternalServerError(String),
+    PaginationError(String),
 }
 
 #[derive(Debug, Serialize)]
@@ -82,6 +83,11 @@ impl AppError{
                 error!("Internal server error occurred: {}", msg);
                 "Internal server error".into()
             }
+
+            AppError::PaginationError(msg) => {
+                error!("Pagination error occurred: {}", msg);
+                "Pagination error".into()
+            }
         }
     }
 }
@@ -94,6 +100,7 @@ impl error::ResponseError for AppError {
             AppError::ConstraintViolation(_msg)=>StatusCode::CONFLICT,
             AppError::UnprocessableEntity(_msg)=>StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Unauthorized(_msg)=>StatusCode::UNAUTHORIZED,
+            AppError::PaginationError(_msg)=>StatusCode::BAD_REQUEST,
             _ => StatusCode::INTERNAL_SERVER_ERROR
         }
     }
