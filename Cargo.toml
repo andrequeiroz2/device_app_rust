@@ -49,6 +49,8 @@ err = "0.0.8"
 eui48 = "1.1.0"
 futures-util = "0.3.31"
 actix-web-httpauth = "0.8.2"
+tokio-util = "0.7.15"
+
 
 
 [dependencies.uuid]

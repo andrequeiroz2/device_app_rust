@@ -167,3 +167,17 @@ pub struct DeviceMessageCreateResponse {
     pub updated_at: Option<chrono::DateTime<Utc>>,
     pub deleted_at: Option<chrono::DateTime<Utc>>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DeviceMessageSubscribe {
+    pub device_uuid: Uuid,
+    pub message_uuid: Uuid,
+    pub topic: String,
+    pub qos: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SubscribeTopicQos {
+    pub topics: Vec<String>,
+    pub qoss: Vec<i32>,
+}

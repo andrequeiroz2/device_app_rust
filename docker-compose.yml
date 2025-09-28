@@ -14,7 +14,6 @@ services:
       - POSTGRES_PASSWORD=labPW
     
     volumes:
-#      - './init.sql:/docker-entrypoint-initdb.d/init.sql'
       - 'device_data:/bitnami/postgresql'
       
 

@@ -56,6 +56,7 @@ pub async fn post_device_message_query(
     let mut tx: Transaction<'_, Postgres> = pool.begin().await
         .map_err(|e| AppError::DBError(e.to_string()))?;
 
+    // Insert device
     let insert_device = sqlx::query_as!(
         Device,
         r#"
@@ -104,7 +105,7 @@ pub async fn post_device_message_query(
         .await
         .map_err(|e| AppError::DBError(e.to_string()))?;
 
-    // 2. Inserir a message vinculada ao device
+    // Insert message
     let inserted_message = sqlx::query_as!(
         DeviceMessage,
         r#"
@@ -162,7 +163,7 @@ pub async fn post_device_message_query(
         .await
         .map_err(|e| AppError::DBError(e.to_string()))?;
 
-    // 3. Se tudo deu certo, commit
+    //commit
     tx.commit().await.map_err(|e| AppError::DBError(e.to_string()))?;
 
     Ok((insert_device, inserted_message))

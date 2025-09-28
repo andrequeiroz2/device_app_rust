@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use actix_web::web;
 use actix_web::web::Query;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use tokio_util::sync::CancellationToken;
 use crate::paginate::paginate_model::{Pagination, PaginationFrom};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -195,5 +199,34 @@ impl From<web::Json<BrokerUpdate>> for BrokerUpdate {
             last_will_retain: broker.last_will_retain.clone(),
             connected: broker.connected.clone(),
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct BrokerHandle {
+    pub cancel_token: CancellationToken,
+}
+
+#[derive(Clone, Default)]
+pub struct BrokerManager{
+    brokers: Arc<Mutex<HashMap<Uuid, BrokerHandle>>>,
+}
+
+impl BrokerManager{
+    pub async fn insert(&self, broker_uuid: Uuid, handle: BrokerHandle) {
+        let mut brokers = self.brokers.lock().await;
+        brokers.insert(broker_uuid, handle);
+        log::info!("🔗 Inserted broker {} into manager (total: {})", broker_uuid, brokers.len());
+    }
+
+    pub async fn get(&self, broker_uuid: &Uuid) -> Option<BrokerHandle> {
+        let brokers = self.brokers.lock().await;
+        log::info!("🔍 Get broker {} (total: {})", broker_uuid, brokers.len());
+        brokers.get(broker_uuid).cloned()
+    }
+
+    pub async fn remove(&self, broker_uuid: &Uuid) {
+        let mut brokers = self.brokers.lock().await;
+        brokers.remove(broker_uuid);
     }
 }

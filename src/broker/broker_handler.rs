@@ -1,11 +1,13 @@
 use actix_web::{web, HttpResponse};
+use log::info;
 use uuid::Uuid;
 use web::Json;
-use crate::broker::broker_model::{BrokerCreate, BrokerFilter, BrokerUpdate};
-use crate::broker::broker_query::{delete_broker_query, get_broker_count_query, get_broker_query, get_broker_update_check_query, get_broker_with_uuid_query, post_broker_query, put_broker_query};
+use crate::broker::broker_model::{BrokerCreate, BrokerFilter, BrokerManager, BrokerUpdate};
+use crate::broker::broker_query::{delete_broker_query, get_broker_count_query, get_broker_query, get_broker_update_check_query, get_broker_with_uuid_query, post_broker_query, put_broker_query, put_broker_state_query};
 use crate::error_app::error_app::{AppError, AppMsgError};
 use crate::state::AppState;
-use crate::broker::broker_connection;
+use crate::broker::broker_connection as mod_broker_connection;
+use crate::broker::broker_tool::broker_change_state;
 
 pub async fn broker_create(
     broker: Json<BrokerCreate>,
@@ -47,10 +49,8 @@ pub async fn broker_delete(
     app_state: web::Data<AppState>
 )-> Result<HttpResponse, AppError>{
 
-    let broker = match get_broker_with_uuid_query(&app_state.db, &broker_uuid).await{
-        Ok(broker) => broker,
-        Err(e) => Err(e)?
-    };
+    let broker = get_broker_with_uuid_query(&app_state.db, &broker_uuid).await?;
+    let broker = broker.unwrap();
 
     delete_broker_query(&app_state.db, &broker.uuid)
         .await
@@ -93,22 +93,59 @@ pub async fn broker_update(
 
 pub async fn broker_connection(
     broker_uuid: web::Path<Uuid>,
-    app_state: web::Data<AppState>
+    app_state: web::Data<AppState>,
+    broker_manager: web::Data<BrokerManager>
 ) -> Result<HttpResponse, AppError>{
 
     let broker_uuid = broker_uuid.into_inner();
 
-    let broker = match get_broker_with_uuid_query(&app_state.db, &broker_uuid).await{
-        Ok(broker) => broker,
-        Err(e) => Err(e)?
-    };
+    let broker = get_broker_with_uuid_query(&app_state.db, &broker_uuid).await?;
+
+    if broker.is_none(){
+        return Err(AppError::NotFound(
+            AppMsgError{
+                api_msg_error: "Broker not found".to_string(),
+                log_msg_error: format!("Broker not found, uuid: {}", broker_uuid)
+            }
+        ))?
+    }
+
+    let broker = broker.unwrap();
 
     if broker.connected{
         return Ok(HttpResponse::NoContent().finish())
     };
-    
-    match broker_connection::connect(&broker).await{
-        Ok(_) => Ok(HttpResponse::NoContent().finish()),
-        Err(err) => Err(AppError::DBError(err.to_string()))?
+
+    mod_broker_connection::connect(&app_state.db, &broker, broker_manager).await?;
+
+    broker_change_state(broker.uuid, true, &app_state.db, false).await?;
+
+    Ok(HttpResponse::NoContent().finish())
+}
+
+pub async fn broker_disconnect(
+    broker_uuid: web::Path<Uuid>,
+    manager: web::Data<BrokerManager>,
+    app_state: web::Data<AppState>
+) -> Result<HttpResponse, AppError>{
+    info!("🔍 Trying to disconnect broker {}", broker_uuid);
+    if let Some(handle) = manager.get(&broker_uuid).await{
+        info!("✅ Broker {} found, cancelling...", broker_uuid);
+        handle.cancel_token.cancel();
+
+        put_broker_state_query(&app_state.db, &broker_uuid, false).await?;
+
+        Ok(HttpResponse::NoContent().finish())
+
+    }else {
+
+        Err(
+            AppError::NotFound(
+                AppMsgError{
+                    api_msg_error: "Broker not found or not connected".to_string(),
+                    log_msg_error: format!("Broker not found or not connected, uuid: {}", broker_uuid)
+                }
+            )
+        )?
     }
 }

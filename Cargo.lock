@@ -623,6 +623,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+ "tokio-util",
  "uuid",
 ]
 
@@ -1423,7 +1424,7 @@ checksum = "dce6dd36094cac388f119d2e9dc82dc730ef91c32a6222170d630e5414b956e6"
 [[package]]
 name = "mqtt_device"
 version = "0.1.0"
-source = "git+https://github.com/andrequeiroz2/lib_mqtt#7bedfb72266ab2b662f4f1292d66eb0dbca0c4ea"
+source = "git+https://github.com/andrequeiroz2/lib_mqtt#d18c799ad57d468063627164c0c768963c44c535"
 dependencies = [
  "futures",
  "paho-mqtt",

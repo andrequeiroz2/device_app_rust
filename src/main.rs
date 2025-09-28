@@ -10,12 +10,13 @@ pub mod paginate;
 mod timezone;
 
 use std::io;
-use actix_web::{App, HttpServer};
+use actix_web::{web, App, HttpServer};
 use dotenv::dotenv;
 use health_check::health_check_cfg::health_check_cfg;
 use auth::auth_route::auth_cfg;
 use user::user_route::user_cfg;
 use auth::auth_config::AuthConfig;
+use crate::broker::broker_model::BrokerManager;
 use crate::broker::broker_route::broker_cfg;
 use crate::device::device_route::device_cfg;
 use crate::timezone::timezone_route::timezone_cfg;
@@ -35,10 +36,13 @@ async fn main()-> io::Result<()> {
 
     let dp_postgres_pool = database::connection_postgres::get_postgres_pool().await;
     let shared_data = state::app_state(dp_postgres_pool);
+
+    let broker_manager = BrokerManager::default();
     
     let app = move ||{
         App::new()
             .app_data(shared_data.clone())
+            .app_data(web::Data::new(broker_manager.clone()))
             .configure(health_check_cfg)
             .configure(auth_cfg)
             .configure(user_cfg)

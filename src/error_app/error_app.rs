@@ -12,6 +12,15 @@ pub struct AppMsgError {
 }
 
 #[derive(Debug, Serialize)]
+pub struct AppMsgInfError {
+    pub file: String,
+    pub line: u32,
+    pub api_msg_error: String,
+    pub log_msg_error: String,
+}
+
+
+#[derive(Debug, Serialize)]
 pub enum AppError{
     BadRequest(String),
     NotFound(AppMsgError),
@@ -24,6 +33,7 @@ pub enum AppError{
     AuthError(AppMsgError),
     InternalServerError(String),
     PaginationError(String),
+    MqttError(AppMsgInfError),
 }
 
 #[derive(Debug, Serialize)]
@@ -87,6 +97,16 @@ impl AppError{
             AppError::PaginationError(msg) => {
                 error!("Pagination error occurred: {}", msg);
                 "Pagination error".into()
+            }
+
+            AppError::MqttError(msg) => {
+                error!(
+                    "file: {}, line: {}: MQTT error occurred: {}",
+                    msg.file,
+                    msg.line,
+                    msg.log_msg_error
+                );
+                msg.api_msg_error.clone()
             }
         }
     }

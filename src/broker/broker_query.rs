@@ -174,7 +174,7 @@ pub async fn get_broker_query(
 pub async fn get_broker_with_uuid_query(
     pool: &PgPool,
     broker_uuid: &Uuid,
-) -> Result<BrokerResponse, AppError> {
+) -> Result<Option<BrokerResponse>, AppError> {
 
     match sqlx::query_as!(
         BrokerResponse,
@@ -201,16 +201,10 @@ pub async fn get_broker_with_uuid_query(
             AND uuid = $1
         "#,
         broker_uuid
-    ).fetch_one(pool).await{
+    ).fetch_optional(pool).await{
         Ok(result) => Ok(result),
         Err(err) => Err(
-            AppError::NotFound(
-                AppMsgError{
-                    api_msg_error: "Broker not found".to_string(),
-                    log_msg_error: format!("{}, uuid: {}", err, broker_uuid)
-                }
-            )
-        )?
+            AppError::DBError(err.to_string()))?
     }
 }
 
@@ -254,6 +248,29 @@ pub async fn get_broker_update_check_query(
             }
             Err(e) => Err(AppError::DBError(e.to_string()))?
         }
+}
+
+pub async fn put_broker_state_query(
+    pool: &PgPool,
+    broker_uuid: &Uuid,
+    connected: bool,
+) -> Result<(), AppError> {
+
+    let query = r#"
+        UPDATE brokers
+        SET connected = $1
+        WHERE uuid = $2
+    "#;
+
+    match sqlx::query(query)
+        .bind(connected)
+        .bind(broker_uuid)
+        .execute(pool)
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(e) => Err(AppError::DBError(e.to_string())),
+    }
 }
 
 pub async fn put_broker_query(
