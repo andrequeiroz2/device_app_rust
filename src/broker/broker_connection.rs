@@ -1,3 +1,5 @@
+use std::sync::{Arc};
+use tokio::sync::Mutex;
 use actix_web::web;
 use log::{info};
 use crate::broker::broker_model::{BrokerHandle, BrokerManager, BrokerResponse};
@@ -6,7 +8,7 @@ use futures::stream::StreamExt;
 use sqlx::PgPool;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
-use crate::broker::broker_tool::{broker_change_state, build_subscribe_topic_qos};
+use crate::broker::broker_tool::{broker_change_state, build_subscribe_all_topics_qoss};
 use crate::device::device_message_query::get_device_message_subscribe_query;
 use crate::error_app::error_app::{AppError, AppMsgInfError};
 
@@ -15,6 +17,7 @@ pub async fn connect(
     pool: &PgPool,
     broker: &BrokerResponse,
     manager: web::Data<BrokerManager>,
+    // manager: Arc<BrokerManager>,
 )-> Result<(), AppError> {
 
     let options = mqtt_device::create_options::Options{
@@ -66,7 +69,7 @@ pub async fn connect(
 
     info!("Subscribers: {:?}", subscribers);
 
-    let subs = build_subscribe_topic_qos(subscribers.clone());
+    let subs = build_subscribe_all_topics_qoss(subscribers.clone());
 
     info!("Subs: {:?}", subs);
 
@@ -86,8 +89,10 @@ pub async fn connect(
     let cancel_token = CancellationToken::new();
     let cancel_child = cancel_token.child_token();
 
+    let client = Arc::new(Mutex::new(cli));
     let handle = BrokerHandle {
         cancel_token: cancel_token.clone(),
+        client: client.clone(),
     };
 
     manager.insert(broker.uuid, handle).await;
@@ -100,7 +105,10 @@ pub async fn connect(
 
     tokio::spawn({
         let manager = manager.clone();
+        let client = client.clone();
+
         async move {
+            let mut cli = client.lock().await;
             let mut stream = cli.get_stream(25);
             let mut reconnect_attempt = 0;
 

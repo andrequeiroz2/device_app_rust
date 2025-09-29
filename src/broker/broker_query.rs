@@ -371,3 +371,39 @@ pub async fn get_broker_count_total_query(pool: &PgPool) -> Result<i64, AppError
             Err(error) => Err(AppError::DBError(error.to_string()))?
         }
 }
+
+pub async fn get_broker_connected_query(
+    pool: &PgPool,
+) -> Result<Option<BrokerResponse>, AppError> {
+
+    match sqlx::query_as!(
+        BrokerResponse,
+        r#"
+            SELECT
+            uuid,
+            host,
+            port,
+            client_id,
+            version,
+            version_text as "version_text!: String",
+            keep_alive,
+            clean_session,
+            last_will_topic,
+            last_will_message,
+            last_will_qos,
+            last_will_retain,
+            connected,
+            created_at,
+            updated_at,
+            deleted_at
+            FROM brokers
+            WHERE connected = true
+            AND deleted_at IS NULL
+            LIMIT 1
+        "#
+    ).fetch_optional(pool)
+        .await{
+            Ok(result) => Ok(result),
+            Err(error) => Err(AppError::DBError(error.to_string()))?
+        }
+}

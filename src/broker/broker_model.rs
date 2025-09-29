@@ -4,6 +4,7 @@ use tokio::sync::Mutex;
 use actix_web::web;
 use actix_web::web::Query;
 use chrono::Utc;
+use mqtt_device::AsyncClient;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use tokio_util::sync::CancellationToken;
@@ -205,6 +206,7 @@ impl From<web::Json<BrokerUpdate>> for BrokerUpdate {
 #[derive(Clone)]
 pub struct BrokerHandle {
     pub cancel_token: CancellationToken,
+    pub client: Arc<Mutex<AsyncClient>>,
 }
 
 #[derive(Clone, Default)]
@@ -229,4 +231,17 @@ impl BrokerManager{
         let mut brokers = self.brokers.lock().await;
         brokers.remove(broker_uuid);
     }
+
+    // pub async fn subscribe_new_topic(
+    //     &self,
+    //     broker_uuid: &Uuid,
+    //     topic: &str,
+    //     qos: i32
+    // ) -> Result<(), mqtt_device::Error> {
+    //     if let Some(handle) = self.get(broker_uuid).await {
+    //         let mut client = handle.client.lock().await;
+    //         client.subscribe(topic, qos).await?;
+    //     }
+    //     Ok(())
+    // }
 }
