@@ -27,6 +27,7 @@ pub enum AppError{
     ConstraintViolation(AppMsgError),
     UnprocessableEntity(AppMsgError),
     DBError(String),
+    MongoDBError(AppMsgInfError),
     ActixError(String),
     ScryptError(AppMsgError),
     Unauthorized(AppMsgError),
@@ -102,6 +103,15 @@ impl AppError{
             AppError::MqttError(msg) => {
                 error!(
                     "file: {}, line: {}: MQTT error occurred: {}",
+                    msg.file,
+                    msg.line,
+                    msg.log_msg_error
+                );
+                msg.api_msg_error.clone()
+            }
+            AppError::MongoDBError(msg) => {
+                error!(
+                    "file: {}, line: {}: MongoDB error occurred: {}",
                     msg.file,
                     msg.line,
                     msg.log_msg_error

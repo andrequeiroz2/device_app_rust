@@ -46,7 +46,7 @@ pub async fn connect(
             log_msg_error: err.to_string(),
         }))?;
 
-    let mut cli = mqtt_device::create_client::create_async_client(options)
+    let cli = mqtt_device::create_client::create_async_client(options)
         .map_err(|err| AppError::MqttError(AppMsgInfError {
         file: file!().to_string(),
         line: line!(),
@@ -106,6 +106,11 @@ pub async fn connect(
     tokio::spawn({
         let manager = manager.clone();
         let client = client.clone();
+        let pool = pool.clone();
+        let broker_uuid = broker_uuid;
+        let subscribers = subscribers.clone();
+        let subs = subs.clone();
+        let cancel_child = cancel_child.clone();
 
         async move {
             let mut cli = client.lock().await;
@@ -114,47 +119,47 @@ pub async fn connect(
 
             loop {
                 tokio::select! {
-                _ = cancel_child.cancelled() => {
-                    info!("🛑 Cancel received, disconnecting broker {}", broker_uuid);
-                    if let Err(err) = cli.disconnect(None).await {
-                        info!("Error while disconnecting: {}", err);
-                    }
-                    let _ = broker_change_state(broker_uuid, false, &pool, true).await;
-                    break;
-                }
-
-                msg_opt = stream.next() => {
-                    match msg_opt {
-                        Some(Some(msg)) => {
-                            info!("📥 MQTT message received: {}", msg);
+                    _ = cancel_child.cancelled() => {
+                        info!("🛑 Cancel received, disconnecting broker {}", broker_uuid);
+                        if let Err(err) = cli.disconnect(None).await {
+                            info!("Error while disconnecting: {}", err);
                         }
-                        Some(None) => {
-                            info!("Lost connection. Attempting reconnect...");
-                            while let Err(err) = cli.reconnect().await {
-                                reconnect_attempt += 1;
-                                info!("Reconnect attempt #{} failed: {}", reconnect_attempt, err);
-                                sleep(Duration::from_secs(1)).await;
-                                let _ = broker_change_state(broker_uuid, false, &pool, true).await;
+                        let _ = broker_change_state(broker_uuid, false, &pool, true).await;
+                        break;
+                    }
+
+                    msg_opt = stream.next() => {
+                        match msg_opt {
+                            Some(Some(msg)) => {
+                                info!("📥 MQTT message received: {}", msg);
                             }
+                            Some(None) => {
+                                info!("Lost connection. Attempting reconnect...");
+                                while let Err(err) = cli.reconnect().await {
+                                    reconnect_attempt += 1;
+                                    info!("Reconnect attempt #{} failed: {}", reconnect_attempt, err);
+                                    sleep(Duration::from_secs(1)).await;
+                                    let _ = broker_change_state(broker_uuid, false, &pool, true).await;
+                                }
 
-                            let _ = broker_change_state(broker_uuid, true, &pool, true).await;
-                            info!("✅ Reconnected.");
+                                let _ = broker_change_state(broker_uuid, true, &pool, true).await;
+                                info!("✅ Reconnected.");
 
-                            if !subscribers.is_empty() {
-                                if let Err(err) = cli.subscribe_many(&subs.topics, &subs.qoss).await {
-                                    info!("Resubscribe failed: {}", err);
-                                } else {
-                                    info!("🔁 Resubscribed ok");
+                                if !subscribers.is_empty() {
+                                    if let Err(err) = cli.subscribe_many(&subs.topics, &subs.qoss).await {
+                                        info!("Resubscribe failed: {}", err);
+                                    } else {
+                                        info!("🔁 Resubscribed ok");
+                                    }
                                 }
                             }
-                        }
-                        None => {
-                            info!("MQTT stream closed for broker {}", broker_uuid);
-                            break;
+                            None => {
+                                info!("MQTT stream closed for broker {}", broker_uuid);
+                                break;
+                            }
                         }
                     }
                 }
-            }
             }
 
             // 🔴 Cleanup no final da task

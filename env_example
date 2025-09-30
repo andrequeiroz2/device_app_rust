@@ -1,6 +1,7 @@
-HOST_ADDRESS="<app url>"
+HOST_ADDRESS="127.0.0.1:8081"
 MAX_CONNECTIONS=10
 DATABASE_URL="<postgres url>"
+DATABASE_URL_MONGO="<mongo url>"
 ALGORITHM="<auth algorithm>"
 AUD_CLAIMS="<ex: your_app_user>"
 EXP_CLAIMS_ADDITIONAL_SEC=20

@@ -7,7 +7,6 @@ services:
     restart: always
     ports:
       - '5432:5432'
-
     environment:
       - POSTGRES_DB=deviceDB
       - POSTGRES_USER=user
@@ -15,10 +14,23 @@ services:
     
     volumes:
       - 'device_data:/bitnami/postgresql'
-      
+
+  mongodb:
+    image: mongodb/mongodb-community-server:6.0-ubi8
+    restart: unless-stopped
+    environment:
+      MONGODB_INITDB_ROOT_USERNAME: user
+      MONGODB_INITDB_ROOT_PASSWORD: pass
+    volumes:
+      - 'mongo_data:/data/db'
+    ports:
+      - "27017:27017"
+    networks:
+      - device_network
 
 volumes: # Define the named volumes
   device_data:
+  mongo_data:
 
 networks: # Define the custom network
   device_network:

@@ -8,6 +8,7 @@ mod broker;
 pub mod device;
 pub mod paginate;
 mod timezone;
+mod data_store;
 
 use std::io;
 use actix_web::{web, App, HttpServer};
@@ -18,7 +19,9 @@ use user::user_route::user_cfg;
 use auth::auth_config::AuthConfig;
 use crate::broker::broker_model::BrokerManager;
 use crate::broker::broker_route::broker_cfg;
+use crate::database::connection_mongo::init_devices_collection;
 use crate::device::device_route::device_cfg;
+use crate::state::app_state;
 use crate::timezone::timezone_route::timezone_cfg;
 
 #[actix_web::main]
@@ -35,7 +38,12 @@ async fn main()-> io::Result<()> {
     ).await;
 
     let dp_postgres_pool = database::connection_postgres::get_postgres_pool().await;
-    let shared_data = state::app_state(dp_postgres_pool);
+    let shared_data = state::app_state(dp_postgres_pool).await;
+
+    let _= init_devices_collection(
+        shared_data.clone(),
+        "devices").await.expect("Failed to initialize devices collection");
+
 
     let broker_manager = BrokerManager::default();
     
@@ -50,6 +58,7 @@ async fn main()-> io::Result<()> {
             .configure(broker_cfg)
             .configure(device_cfg)
     };
+
 
     let host_address = std::env::var("HOST_ADDRESS")
     .expect("HOST_ADDRESS must be specified");

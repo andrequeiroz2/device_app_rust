@@ -2,9 +2,10 @@ use actix_web::{web, HttpResponse};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use web::Json;
 use crate::auth::auth_tool::token_info;
-use crate::broker::broker_model::{BrokerFilter, BrokerManager};
-use crate::broker::broker_query::{get_broker_connected_query, get_broker_query, get_broker_with_uuid_query};
+use crate::broker::broker_model::{BrokerManager};
+use crate::broker::broker_query::{get_broker_connected_query};
 use crate::broker::broker_tool::build_subscribe_topic_qos;
+use crate::data_store::data_store_device_handler::create_device_collection;
 use crate::device::device_model::{DeviceCreate, DeviceCreateRequest, DeviceCreateResponse, DeviceFilter};
 use crate::device::device_query::{get_device_filter, post_device_message_query};
 use crate::error_app::error_app::{AppError, AppMsgError};
@@ -86,6 +87,12 @@ pub async fn device_create(
             deleted_at: result_message.deleted_at,
         }
     };
+
+    // let _ = create_device_collection(
+    //     app_state,
+    //     &result.uuid,
+    //     &result.user_uuid
+    // ).await?;
 
     Ok(HttpResponse::Ok().json(result))
 
