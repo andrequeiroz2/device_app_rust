@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
+use mongodb::bson::DateTime as BsonDateTime;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageDirection {
@@ -14,15 +14,17 @@ pub struct DeviceMessage {
     pub topic: String,
     pub qos: i32,
     pub payload: String,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: BsonDateTime,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeviceData {
+    #[serde(rename = "_id")]
+    pub id: String,
     pub device_uuid: String,
     pub user_uuid: String,
     pub messages: Vec<DeviceMessage>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
-    pub deleted_at: Option<DateTime<Utc>>,
+    pub created_at: BsonDateTime,
+    pub updated_at: Option<BsonDateTime>,
+    pub deleted_at: Option<BsonDateTime>,
 }

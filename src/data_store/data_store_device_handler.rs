@@ -1,10 +1,7 @@
 use actix_web::web;
+use log::info;
 use mongodb::bson::{DateTime as BsonDateTime};
-use mongodb::{
-    bson::doc,
-    options::{IndexOptions},
-    Collection, IndexModel,
-};
+use mongodb::Collection;
 use uuid::Uuid;
 use crate::data_store::data_store_device_model::DeviceData;
 use crate::error_app::error_app::{AppError, AppMsgInfError};
@@ -15,29 +12,33 @@ pub async fn create_device_collection(
     device_uuid: &Uuid,
     user_uuid: &Uuid,
 ) -> Result<(), AppError> {
-    // Usa o nome do banco definido na configuração
-    let database = app_state.mongo.database("devices_db"); // substitua pelo nome do seu DB
+
+    info!("file: {}, lime: {}, device_uuid: {}, user_uuid: {}",
+        file!(),
+        line!(),
+        device_uuid,
+        user_uuid
+    );
+
+    let database = app_state.mongo.database("devices");
     let coll: Collection<DeviceData> = database.collection("devices");
 
-    // Upsert: cria o documento apenas se não existir
-    let filter = doc! { "device_uuid": device_uuid.to_string() };
-    let update = doc! {
-        "$setOnInsert": {
-            "device_uuid": device_uuid.to_string(),
-            "user_uuid": user_uuid.to_string(),
-            "messages": [],
-            "created_at": BsonDateTime::now(),
-        }
+    let device = DeviceData {
+        id: device_uuid.to_string(),
+        device_uuid: device_uuid.to_string(),
+        user_uuid: user_uuid.to_string(),
+        messages: vec![],
+        created_at: BsonDateTime::now(),
+        updated_at: None,
+        deleted_at: None,
     };
 
-    coll.update_one(filter, update)
-        .await
-        .map_err(|e| AppError::MongoDBError(AppMsgInfError{
-            file: file!().to_string(),
-            line: line!(),
-            api_msg_error: "Internal server error".into(),
-            log_msg_error: e.to_string(),
-        }))?;
+    coll.insert_one(device).await.map_err(|e| AppError::MongoDBError(AppMsgInfError {
+        file: file!().to_string(),
+        line: line!(),
+        api_msg_error: "Internal server error".into(),
+        log_msg_error: e.to_string(),
+    }))?;
 
     Ok(())
 }

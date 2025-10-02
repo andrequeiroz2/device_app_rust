@@ -88,11 +88,11 @@ pub async fn device_create(
         }
     };
 
-    // let _ = create_device_collection(
-    //     app_state,
-    //     &result.uuid,
-    //     &result.user_uuid
-    // ).await?;
+    let _ = create_device_collection(
+        app_state,
+        &result.uuid,
+        &result.user_uuid
+    ).await?;
 
     Ok(HttpResponse::Ok().json(result))
 

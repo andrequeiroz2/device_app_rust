@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use actix_web::web;
 use actix_web::web::Query;
 use chrono::Utc;
-use mqtt_device::AsyncClient;
+use mqtt_device::{AsyncClient, AsyncReceiver, Message};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use tokio_util::sync::CancellationToken;
@@ -203,10 +203,22 @@ impl From<web::Json<BrokerUpdate>> for BrokerUpdate {
     }
 }
 
+#[derive(Debug)]
+pub enum BrokerCommand {
+    Subscribe{topic: String, qos: i32},
+    Unsubscribe{topic: String},
+}
+
 #[derive(Clone)]
 pub struct BrokerHandle {
     pub cancel_token: CancellationToken,
-    pub client: Arc<Mutex<AsyncClient>>,
+    pub client: Arc<AsyncClient>,
+    pub cmd_tx: mpsc::Sender<BrokerCommand>,
+}
+
+pub struct BrokerStream{
+    pub broker_uuid: Uuid,
+    pub stream: AsyncReceiver<Option<Message>>,
 }
 
 #[derive(Clone, Default)]
@@ -218,30 +230,31 @@ impl BrokerManager{
     pub async fn insert(&self, broker_uuid: Uuid, handle: BrokerHandle) {
         let mut brokers = self.brokers.lock().await;
         brokers.insert(broker_uuid, handle);
-        log::info!("🔗 Inserted broker {} into manager (total: {})", broker_uuid, brokers.len());
+        log::info!(
+            "file: {}, line: {}: Inserted broker {} into manager (total: {})",
+            file!(),
+            line!(),
+            broker_uuid, brokers.len()
+        );
     }
 
     pub async fn get(&self, broker_uuid: &Uuid) -> Option<BrokerHandle> {
         let brokers = self.brokers.lock().await;
-        log::info!("🔍 Get broker {} (total: {})", broker_uuid, brokers.len());
+        log::info!("file: {}, line: {}: Get broker {} (total: {})",
+            file!(),
+            line!(),
+            broker_uuid, brokers.len()
+        );
         brokers.get(broker_uuid).cloned()
     }
 
     pub async fn remove(&self, broker_uuid: &Uuid) {
         let mut brokers = self.brokers.lock().await;
         brokers.remove(broker_uuid);
+        log::info!("file: {}, line: {}: Removed broker {} (total: {})",
+            file!(),
+            line!(),
+            broker_uuid, brokers.len()
+        );
     }
-
-    // pub async fn subscribe_new_topic(
-    //     &self,
-    //     broker_uuid: &Uuid,
-    //     topic: &str,
-    //     qos: i32
-    // ) -> Result<(), mqtt_device::Error> {
-    //     if let Some(handle) = self.get(broker_uuid).await {
-    //         let mut client = handle.client.lock().await;
-    //         client.subscribe(topic, qos).await?;
-    //     }
-    //     Ok(())
-    // }
 }

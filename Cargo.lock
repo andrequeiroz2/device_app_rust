@@ -799,6 +799,7 @@ dependencies = [
  "mqtt_device",
  "once_cell",
  "openssl",
+ "paho-mqtt",
  "scrypt",
  "serde",
  "serde_json",

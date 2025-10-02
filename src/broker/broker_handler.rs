@@ -119,7 +119,7 @@ pub async fn broker_connection(
 
     mod_broker_connection::connect(&app_state.db, &broker, broker_manager.clone()).await?;
 
-    broker_change_state(broker.uuid, true, &app_state.db, false).await?;
+    broker_change_state(&broker.uuid, true, &app_state.db, false).await?;
 
     Ok(HttpResponse::NoContent().finish())
 }
@@ -129,12 +129,20 @@ pub async fn broker_disconnect(
     manager: web::Data<BrokerManager>,
     app_state: web::Data<AppState>
 ) -> Result<HttpResponse, AppError>{
-    info!("🔍 Trying to disconnect broker {}", broker_uuid);
+    
+    let broker_uuid = broker_uuid.into_inner();
+
     if let Some(handle) = manager.get(&broker_uuid).await{
-        info!("✅ Broker {} found, cancelling...", broker_uuid);
+
+        info!("file: {}, line: {} Broker {} found, cancelling...",
+            file!(),
+            line!(),
+            broker_uuid
+        );
+
         handle.cancel_token.cancel();
 
-        put_broker_state_query(&app_state.db, &broker_uuid, false).await?;
+        broker_change_state(&broker_uuid, false, &app_state.db, true).await?;
 
         Ok(HttpResponse::NoContent().finish())
 
@@ -144,7 +152,7 @@ pub async fn broker_disconnect(
             AppError::NotFound(
                 AppMsgError{
                     api_msg_error: "Broker not found or not connected".to_string(),
-                    log_msg_error: format!("Broker not found or not connected, uuid: {}", broker_uuid)
+                    log_msg_error: format!("Broker not found or not connected in BrokerManager, uuid: {}", broker_uuid)
                 }
             )
         )?
