@@ -181,3 +181,11 @@ pub struct SubscribeTopicQos {
     pub topics: Vec<String>,
     pub qoss: Vec<i32>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct MessageReceivePayload {
+    pub topic: String,
+    pub device_uuid: String,
+    pub user_uuid: String,
+    pub payload: String,
+}

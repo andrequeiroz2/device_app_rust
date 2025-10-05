@@ -1,14 +1,15 @@
 use actix_web::web;
-use log::info;
+use log::{error, info};
 use mqtt_device::AsyncClient;
 use mqtt_device::components::will::Will;
 use mqtt_device::create_connection_options::ConnectionOptions;
+use mqtt_device::create_message::Message;
 use mqtt_device::create_options::Options;
 use sqlx::PgPool;
 use uuid::Uuid;
 use crate::broker::broker_model::{BrokerCommand, BrokerManager, BrokerResponse};
 use crate::broker::broker_query::{get_broker_with_uuid_query, put_broker_state_query};
-use crate::device::device_message_model::{DeviceMessageSubscribe, SubscribeTopicQos};
+use crate::device::device_message_model::{DeviceMessageSubscribe, MessageReceivePayload, SubscribeTopicQos};
 use crate::error_app::error_app::{AppError, AppMsgError, AppMsgInfError};
 
 pub fn create_options(broker: &BrokerResponse) -> Options {
@@ -134,4 +135,42 @@ pub async fn build_subscribe_topic_qos(
             }))?;
 
     Ok(())
+}
+
+pub fn decode_received_message(message: &paho_mqtt::Message)->Result<MessageReceivePayload, AppError> {
+
+    match std::str::from_utf8(message.payload()) {
+        Ok(payload_str) => {
+            match serde_json::from_str::<MessageReceivePayload>(payload_str) {
+                Ok(decoded) => Ok(decoded),
+                Err(err) => {
+                    error!("Failed to deserialize payload: {}, raw: {}", err, payload_str);
+                    Err(
+                        AppError::MqttError(
+                            AppMsgInfError{
+                                file: file!().to_string(),
+                                line: line!(),
+                                api_msg_error: "MqttError".into(),
+                                log_msg_error: err.to_string(),
+                            }
+                        )
+                    )?
+                }
+            }
+        }
+        Err(err) => {
+            error!("Failed to parse MQTT payload as UTF-8: {}", err);
+            Err(
+                AppError::MqttError(
+                    AppMsgInfError{
+                        file: file!().to_string(),
+                        line: line!(),
+                        api_msg_error: "MqttError".into(),
+                        log_msg_error: err.to_string(),
+                    }
+                )
+            )?
+
+        }
+    }
 }

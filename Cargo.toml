@@ -55,7 +55,7 @@ actix-web-httpauth = "0.8.2"
 tokio-util = "0.7.15"
 paho-mqtt = "0.13.3"
 
-
+bson = { version = "3.0.0", features = ["chrono-0_4"] }
 
 [dependencies.uuid]
 version = "1.17.0"

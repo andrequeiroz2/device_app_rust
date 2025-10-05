@@ -1,10 +1,39 @@
+#appenders:
+#  stdout_logger:
+#    kind: console
+#    encoder:
+#      pattern: "{h({d(%Y-%m-%d %H:%M:%S)(utc)} - {l}: {m}{n})}"
+#
+#root:
+#  level: debug
+#  appenders:
+#    - stdout_logger
+
 appenders:
-  stdout_logger:
+  stdout_app:
     kind: console
     encoder:
-      pattern: "{h({d(%Y-%m-%d %H:%M:%S)(utc)} - {l}: {m}{n})}"
+      pattern: "{h({d(%Y-%m-%d %H:%M:%S)(utc)} - APP {l}: {m}{n})}"
+
+  stdout_broker:
+    kind: console
+    encoder:
+      pattern: "{h({d(%Y-%m-%d %H:%M:%S)(utc)} - BROKER {l}: {m}{n})}"
+
+loggers:
+  device_app:
+    level: debug
+    appenders:
+      - stdout_app
+    additive: false
+
+  paho_mqtt:
+    level: info
+    appenders:
+      - stdout_broker
+    additive: false
 
 root:
-  level: debug
+  level: warn
   appenders:
-    - stdout_logger
+    - stdout_app

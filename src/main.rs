@@ -19,6 +19,7 @@ use user::user_route::user_cfg;
 use auth::auth_config::AuthConfig;
 use crate::broker::broker_model::BrokerManager;
 use crate::broker::broker_route::broker_cfg;
+use crate::data_store::data_store_device_route::data_store_device_cfg;
 use crate::database::connection_mongo::init_devices_collection;
 use crate::device::device_route::device_cfg;
 use crate::state::app_state;
@@ -57,6 +58,7 @@ async fn main()-> io::Result<()> {
             .configure(timezone_cfg)
             .configure(broker_cfg)
             .configure(device_cfg)
+            .configure(data_store_device_cfg)
     };
 
 

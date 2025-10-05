@@ -1,19 +1,22 @@
-use std::sync::{Arc};
+use std::sync::Arc;
 use actix_web::web;
-use log::{info};
+use log::info;
 use crate::broker::broker_model::{BrokerCommand, BrokerHandle, BrokerManager, BrokerResponse};
 use futures::stream::StreamExt;
+use mongodb::Client;
 use sqlx::PgPool;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use crate::broker::broker_tool::{broker_change_state, build_subscribe_all_topics_qoss, create_client, create_connection_options, create_options};
+use crate::data_store::data_store_device_handler::put_device_collection;
 use crate::device::device_message_query::get_device_message_subscribe_query;
 use crate::error_app::error_app::{AppError, AppMsgInfError};
 
 
 pub async fn connect(
     pool: &PgPool,
+    mongo_db: Client,
     broker: &BrokerResponse,
     manager: web::Data<BrokerManager>,
 )-> Result<(), AppError> {
@@ -80,6 +83,7 @@ pub async fn connect(
         let subs = subs.clone();
         let cancel_child = cancel_child.clone();
         let mut cmd_rx = cmd_rx;
+        let mongo_db = mongo_db;
 
         async move {
             let mut reconnect_attempt = 0;
@@ -138,6 +142,7 @@ pub async fn connect(
                         match msg_opt {
                             Some(Some(msg)) => {
                                 info!("📥 MQTT message received: {}", msg);
+                                put_device_collection(mongo_db.clone(), &msg).await;
                             }
                             Some(None) => {
                                 info!("Lost connection. Attempting reconnect...");

@@ -117,7 +117,7 @@ pub async fn broker_connection(
         return Ok(HttpResponse::NoContent().finish())
     };
 
-    mod_broker_connection::connect(&app_state.db, &broker, broker_manager.clone()).await?;
+    mod_broker_connection::connect(&app_state.db, app_state.mongo.clone(), &broker, broker_manager.clone()).await?;
 
     broker_change_state(&broker.uuid, true, &app_state.db, false).await?;
 

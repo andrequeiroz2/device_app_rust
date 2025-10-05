@@ -1,11 +1,17 @@
-use actix_web::web;
+use actix_web::{web, HttpResponse};
+use actix_web_httpauth::extractors::bearer::BearerAuth;
 use log::info;
 use mongodb::bson::{DateTime as BsonDateTime};
-use mongodb::Collection;
+use mongodb::Client;
 use uuid::Uuid;
-use crate::data_store::data_store_device_model::DeviceData;
-use crate::error_app::error_app::{AppError, AppMsgInfError};
+use crate::auth::auth_tool::token_info;
+use crate::broker::broker_tool::decode_received_message;
+use crate::data_store::data_store_device_model::{DeviceData, DeviceDataStoreResponse};
+use crate::data_store::data_store_device_query::{get_device_with_uuid_data_store_query, post_device_data_store_query, update_device_messages_query};
+use crate::data_store::data_store_tool::bson_to_chrono;
+use crate::error_app::error_app::AppError;
 use crate::state::AppState;
+use crate::user::user_query::get_user_by_uuid;
 
 pub async fn create_device_collection(
     app_state: web::Data<AppState>,
@@ -20,9 +26,6 @@ pub async fn create_device_collection(
         user_uuid
     );
 
-    let database = app_state.mongo.database("devices");
-    let coll: Collection<DeviceData> = database.collection("devices");
-
     let device = DeviceData {
         id: device_uuid.to_string(),
         device_uuid: device_uuid.to_string(),
@@ -33,12 +36,74 @@ pub async fn create_device_collection(
         deleted_at: None,
     };
 
-    coll.insert_one(device).await.map_err(|e| AppError::MongoDBError(AppMsgInfError {
-        file: file!().to_string(),
-        line: line!(),
-        api_msg_error: "Internal server error".into(),
-        log_msg_error: e.to_string(),
-    }))?;
+    post_device_data_store_query(&app_state.mongo, device).await?;
 
     Ok(())
+}
+
+pub async fn get_device_collection(
+    app_state: web::Data<AppState>,
+    device_uuid: web::Path<Uuid>,
+    credentials: BearerAuth,
+) -> Result<HttpResponse, AppError> {
+
+    let token = token_info(credentials.token().to_string()).await?;
+    let user = get_user_by_uuid(&app_state.db, &token.inf.uuid).await?;
+
+    let device_data = get_device_with_uuid_data_store_query(
+        &app_state.mongo,
+        &device_uuid,
+        &user.uuid
+    ).await?;
+
+    let updated_at;
+    let deleted_at;
+
+    let created_at = bson_to_chrono(&device_data.created_at)?;
+
+    if let Some(i) = device_data.updated_at {
+        updated_at = Some(bson_to_chrono(&i)?);
+    }else{
+        updated_at = None;
+    };
+
+    if let Some(i) = device_data.deleted_at {
+        deleted_at = Some(bson_to_chrono(&i)?);
+    }else {
+        deleted_at = None;
+    };
+
+    let result = DeviceDataStoreResponse {
+        id: Uuid::parse_str(&device_data.id).unwrap(),
+        device_uuid: Uuid::parse_str(&device_data.device_uuid).unwrap(),
+        user_uuid: Uuid::parse_str(&device_data.user_uuid).unwrap(),
+        created_at,
+        updated_at,
+        deleted_at,
+    };
+
+    Ok(HttpResponse::Ok().json(result))
+
+}
+
+pub async fn put_device_collection(
+    client: Client,
+    message: &paho_mqtt::Message
+) {
+    let decode_message = match decode_received_message(message){
+        Ok(decode) => decode,
+        Err(err) => {
+            info!("Failed to decode message: {:?}", err);
+            return;
+        }
+    };
+
+    match update_device_messages_query(client, &decode_message).await{
+        Ok(data) => data,
+        Err(err) => {
+            info!("Failed to update device messages: {:?}", err);
+            return;
+        }
+    };
+
 }
