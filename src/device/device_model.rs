@@ -8,7 +8,7 @@ use crate::device::device_border_model::BoarderType;
 use crate::device::device_type_model::DeviceType;
 use crate::error_app::error_app::AppError;
 use eui48::MacAddress;
-use crate::device::device_message_model::{DeviceMessageCreate, DeviceMessageCreateRequest, DeviceMessageCreateResponse};
+use crate::device::device_message_model::{DeviceMessageCreate, DeviceMessageCreateRequest, DeviceMessageCreateResponse, DeviceScaleCreate, DeviceScaleCreateRequest, DeviceScaleCreateResponse};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeviceCondition {
@@ -71,7 +71,8 @@ pub struct DeviceCreateRequest{
     border_version_str: String,
     device_condition_str: String,
     mac_address: String,
-    message: DeviceMessageCreateRequest
+    message: DeviceMessageCreateRequest,
+    scale: Option<DeviceScaleCreateRequest>
 }
 impl From<web::Json<DeviceCreateRequest>> for DeviceCreateRequest {
     fn from(device: web::Json<DeviceCreateRequest>) -> Self {
@@ -84,6 +85,7 @@ impl From<web::Json<DeviceCreateRequest>> for DeviceCreateRequest {
             device_condition_str: device.device_condition_str,
             mac_address: device.mac_address,
             message: device.message,
+            scale: device.scale,
         }
     }
 }
@@ -102,6 +104,7 @@ pub struct DeviceCreate {
     pub device_condition_int: i32,
     pub device_condition_text: String,
     pub message: DeviceMessageCreate,
+    pub scale: Option<Vec<DeviceScaleCreate>>
 }
 
 impl DeviceCreate {
@@ -124,11 +127,11 @@ impl DeviceCreate {
 
 
         //border_type
-        let border_type = match BoarderType::from_request(&params.border_type_str, &params.border_version_str){
+        let border_type = match BoarderType::from_request(&params.border_type_str){
             Ok(border_type) => border_type,
             Err(err) => Err(AppError::BadRequest(format!("{:?}", err)))?
-
         };
+        
         let border_type_int = border_type.as_int();
         let border_type_text = border_type.to_string();
 
@@ -139,6 +142,13 @@ impl DeviceCreate {
         };
         
         let message = DeviceMessageCreate::new(params.message)?;
+
+        let mut scale: Option<Vec<DeviceScaleCreate>> = None;
+
+        if let Some(scale_param) = params.scale {
+            scale = Some(DeviceScaleCreate::new(scale_param)?);
+        };
+
         
         //variables
         let device_condition_int = device_condition.as_int();
@@ -158,7 +168,8 @@ impl DeviceCreate {
                 device_condition_int,
                 device_condition_text,
                 mac_address,
-                message
+                message,
+                scale
             }
         )
     }
@@ -221,6 +232,7 @@ pub struct DeviceCreateResponse {
     pub updated_at: Option<chrono::DateTime<Utc>>,
     pub deleted_at: Option<chrono::DateTime<Utc>>,
     pub message: DeviceMessageCreateResponse,
+    pub scale: Option<DeviceScaleCreateResponse>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

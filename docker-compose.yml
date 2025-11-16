@@ -16,7 +16,7 @@ services:
       - 'device_data:/bitnami/postgresql'
 
   mongodb:
-    image: mongodb/mongodb-community-server:6.0-ubi8
+    image: mongodb/mongodb-community-server:8.0.1
     restart: unless-stopped
     environment:
       MONGODB_INITDB_ROOT_USERNAME: user

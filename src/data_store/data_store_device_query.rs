@@ -98,6 +98,8 @@ pub async fn update_device_messages_query(
         "$push": {
             "messages": {
                 "value": message.payload.clone(),
+                "metric": message.metric.clone(),
+                "scale": message.scale.clone(),
                 "timestamp": BsonDateTime::now(),
             }
         },

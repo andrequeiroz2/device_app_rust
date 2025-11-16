@@ -1,7 +1,7 @@
 use sqlx::{PgPool, Postgres, QueryBuilder, Transaction};
 use crate::device::device_model::{Device, DeviceCreate, DeviceFilter};
 use crate::error_app::error_app::{AppError};
-use crate::device::device_message_model::{DeviceMessage};
+use crate::device::device_message_model::{DeviceMessage, DeviceScale};
 
 pub async fn get_device_filter(
     pool: &PgPool,
@@ -51,13 +51,14 @@ pub async fn get_device_filter(
 pub async fn post_device_message_query(
     pool: &PgPool,
     device: DeviceCreate,
-) -> Result<(Device, DeviceMessage), AppError>{
+    topic_compose: String
+) -> Result<(Device, DeviceMessage, Option<DeviceScale>), AppError>{
 
     let mut tx: Transaction<'_, Postgres> = pool.begin().await
         .map_err(|e| AppError::DBError(e.to_string()))?;
 
     // Insert device
-    let insert_device = sqlx::query_as!(
+    let inserted_device = sqlx::query_as!(
         Device,
         r#"
         INSERT INTO
@@ -119,13 +120,12 @@ pub async fn post_device_message_query(
           retained,
           publisher,
           subscriber,
-          scale,
           command_start,
           command_end,
           command_last,
           command_last_time
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING
         id,
         uuid,
@@ -136,7 +136,6 @@ pub async fn post_device_message_query(
         retained,
         publisher,
         subscriber,
-        scale,
         command_start,
         command_end,
         command_last,
@@ -146,14 +145,13 @@ pub async fn post_device_message_query(
         deleted_at
         "#,
         device.message.uuid,
-        insert_device.id,
-        device.message.topic,
+        inserted_device.id,
+        topic_compose,
         device.message.payload,
         device.message.qos,
         device.message.retained,
         device.message.publisher,
         device.message.subscriber,
-        device.message.scale,
         device.message.command_start,
         device.message.command_end,
         device.message.command_last,
@@ -163,8 +161,48 @@ pub async fn post_device_message_query(
         .await
         .map_err(|e| AppError::DBError(e.to_string()))?;
 
+    // Insert scale
+    let mut inserted_scale: Option<DeviceScale> = None;
+
+    if let Some(scale_list) = device.scale.clone() {
+        for scale_item in scale_list {
+            let scale = sqlx::query_as!(
+            DeviceScale,
+            r#"
+            INSERT INTO 
+            scales (
+                uuid,
+                device_id,
+                metric,
+                unit
+            )
+            VALUES ($1, $2, $3, $4)
+            RETURNING
+            id,
+            uuid,
+            device_id,
+            metric,
+            unit,
+            created_at,
+            updated_at,
+            deleted_at
+            "#,
+                
+            scale_item.uuid,
+            inserted_device.id,
+            scale_item.metric,
+            scale_item.unit
+        )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| AppError::DBError(e.to_string()))?;
+
+            inserted_scale = Some(scale);
+        }
+    }
+
     //commit
     tx.commit().await.map_err(|e| AppError::DBError(e.to_string()))?;
 
-    Ok((insert_device, inserted_message))
+    Ok((inserted_device, inserted_message, inserted_scale))
 }

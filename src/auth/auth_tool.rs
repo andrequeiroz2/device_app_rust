@@ -1,7 +1,7 @@
 use jwt_lib::jwt_decode;
 use scrypt::password_hash::{PasswordHash, PasswordVerifier};
 use scrypt::Scrypt;
-use log::{info};
+use log::info;
 use crate::auth::auth_config::AuthConfig;
 use crate::auth::auth_model::{MyClaim, Token};
 use crate::error_app::error_app::{AppError, AppMsgError};

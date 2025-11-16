@@ -8,3 +8,6 @@ mod device_type_model;
 mod device_actuator_model;
 pub mod device_message_model;
 pub mod device_message_query;
+mod device_adoption_model;
+mod device_adoption_handler;
+mod device_adoption_tool;

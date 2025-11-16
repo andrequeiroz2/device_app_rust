@@ -3,7 +3,6 @@ use log::{error, info};
 use mqtt_device::AsyncClient;
 use mqtt_device::components::will::Will;
 use mqtt_device::create_connection_options::ConnectionOptions;
-use mqtt_device::create_message::Message;
 use mqtt_device::create_options::Options;
 use sqlx::PgPool;
 use uuid::Uuid;

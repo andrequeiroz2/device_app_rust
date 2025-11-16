@@ -6,12 +6,13 @@ use crate::broker::broker_model::{BrokerManager};
 use crate::broker::broker_query::{get_broker_connected_query};
 use crate::broker::broker_tool::build_subscribe_topic_qos;
 use crate::data_store::data_store_device_handler::create_device_collection;
+use crate::device::device_adoption_tool::device_compose_topic;
 use crate::device::device_model::{DeviceCreate, DeviceCreateRequest, DeviceCreateResponse, DeviceFilter};
 use crate::device::device_query::{get_device_filter, post_device_message_query};
 use crate::error_app::error_app::{AppError, AppMsgError};
 use crate::state::AppState;
 use crate::user::user_query::get_user_by_uuid;
-use crate::device::device_message_model::DeviceMessageCreateResponse;
+use crate::device::device_message_model::{DeviceMessageCreateResponse, DeviceScaleCreateResponse};
 
 pub async fn device_create(
     device: Json<DeviceCreateRequest>,
@@ -45,13 +46,28 @@ pub async fn device_create(
         )?
     };
 
-    let (result_device, result_message) = post_device_message_query(&app_state.db, device.clone()).await?;
-
     let broker = get_broker_connected_query(&app_state.db).await?;
+    if !broker.is_some(){
+        return Err(
+            AppError::NotFound(
+                AppMsgError {
+                    api_msg_error: "Broker not connected. Connect to an MQTT broker before registering a device".into(),
+                    log_msg_error: "Broker not connected. Connect to an MQTT broker before registering a device".into(),
+                }
+            )
+        )
+    }
 
-    if broker.is_some(){
+    let topic_compose = device_compose_topic(&user.uuid, &device.uuid, &device.name);
+
+    mqtt_device::components::topic::valid_topic(&topic_compose)
+        .map_err(|err| AppError::BadRequest(err.to_string()))?;
+
+    let (result_device, result_message, result_scale) = post_device_message_query(&app_state.db, device.clone(), topic_compose.clone()).await?;
+
+    if broker.is_some() && device.device_type_int == 0 {
         let broker = broker.unwrap();
-        let _ = build_subscribe_topic_qos(broker.uuid, device.message.topic, device.message.qos,  manager.clone()).await?;
+        let _ = build_subscribe_topic_qos(broker.uuid, topic_compose, device.message.qos,  manager.clone()).await?;
     }
 
     let result = DeviceCreateResponse{
@@ -77,7 +93,6 @@ pub async fn device_create(
             retained: result_message.retained,
             publisher: result_message.publisher,
             subscriber: result_message.subscriber,
-            scale: result_message.scale,
             command_start: result_message.command_start,
             command_end: result_message.command_end,
             command_last: result_message.command_last,
@@ -85,7 +100,16 @@ pub async fn device_create(
             created_at: result_message.created_at,
             updated_at: result_message.updated_at,
             deleted_at: result_message.deleted_at,
-        }
+        },
+        scale: result_scale.map(|scale| DeviceScaleCreateResponse {
+            uuid: scale.uuid,
+            device_id: scale.device_id,
+            metric: scale.metric,
+            unit: scale.unit,
+            created_at: scale.created_at,
+            updated_at: scale.updated_at,
+            deleted_at: scale.deleted_at,
+        }),
     };
 
     let _ = create_device_collection(
