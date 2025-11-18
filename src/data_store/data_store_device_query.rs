@@ -110,28 +110,6 @@ pub async fn update_device_messages_query(
 
     let update_options = UpdateOptions::builder().upsert(false).build();
 
-    // match collection.update_one(filter, update).await {
-    //     Ok(result) if result.matched_count > 0 => Ok(()),
-    //
-    //     Ok(_) => Err(AppError::NotFound(AppMsgError {
-    //         api_msg_error: "Device not found".into(),
-    //         log_msg_error: format!(
-    //             "file: {}, line: {}, Device not found: device_uuid: {}, user_uuid: {}",
-    //             file!(),
-    //             line!(),
-    //             message.device_uuid.to_string(),
-    //             message.user_uuid.to_string()
-    //         ),
-    //     }))?,
-    //
-    //     Err(e) => Err(AppError::MongoDBError(AppMsgInfError {
-    //         file: file!().to_string(),
-    //         line: line!(),
-    //         api_msg_error: "Internal server error".into(),
-    //         log_msg_error: e.to_string(),
-    //     }))?,
-    // }
-
     let result = collection.update_one(filter, update).await.map_err(|e| {
         AppError::MongoDBError(AppMsgInfError {
             file: file!().into(),

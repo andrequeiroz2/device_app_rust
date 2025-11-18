@@ -17,7 +17,7 @@ pub async fn broker_create(
 
     let broker = broker.into_inner();
 
-    let broker_check = get_broker_count_query(&app_state.db, broker.port)
+    let broker_check = get_broker_count_query(&app_state.db, &broker.port)
         .await
         .map_err(|e| e)?;
 
@@ -25,14 +25,14 @@ pub async fn broker_create(
         return Err(AppError::ConstraintViolation(
             AppMsgError{
                 api_msg_error: "Broker port already registered".to_string(),
-                log_msg_error: format!("Broker port already registered, port: {}", broker.port)
+                log_msg_error: format!("Broker port already registered, port: {}", &broker.port)
             }
         ))?
     }
 
-    post_broker_query(&app_state.db, broker.into(), &Uuid::new_v4())
+    post_broker_query(&app_state.db, &broker, &Uuid::new_v4())
         .await
-        .map(|broker| HttpResponse::Ok().json(broker))
+        .map(|broker| HttpResponse::Ok().json(&broker))
 }
 
 pub async fn broker_get_filter(
@@ -42,7 +42,7 @@ pub async fn broker_get_filter(
 
     get_broker_query(&app_state.db, &filter)
         .await
-        .map(|broker| HttpResponse::Ok().json(broker))
+        .map(|broker| HttpResponse::Ok().json(&broker))
 }
 
 pub async fn broker_delete(
@@ -77,7 +77,7 @@ pub async fn broker_update(
         return Err(AppError::ConstraintViolation(
             AppMsgError{
                 api_msg_error: "Broker port already registered".to_string(),
-                log_msg_error: format!("Broker port already registered, port: {}", broker_update.port)
+                log_msg_error: format!("Broker port already registered, port: {}", &broker_update.port)
             }
         ))?
     }
@@ -89,7 +89,7 @@ pub async fn broker_update(
 
     put_broker_query(&app_state.db, &broker_uuid, &broker_update)
         .await
-        .map(|broker| HttpResponse::Ok().json(broker))
+        .map(|broker| HttpResponse::Ok().json(&broker))
 }
 
 pub async fn broker_connection(
@@ -106,7 +106,7 @@ pub async fn broker_connection(
         return Err(AppError::NotFound(
             AppMsgError{
                 api_msg_error: "Broker not found".to_string(),
-                log_msg_error: format!("Broker not found, uuid: {}", broker_uuid)
+                log_msg_error: format!("Broker not found, uuid: {}", &broker_uuid)
             }
         ))?
     }
@@ -152,7 +152,7 @@ pub async fn broker_disconnect(
             AppError::NotFound(
                 AppMsgError{
                     api_msg_error: "Broker not found or not connected".to_string(),
-                    log_msg_error: format!("Broker not found or not connected in BrokerManager, uuid: {}", broker_uuid)
+                    log_msg_error: format!("Broker not found or not connected in BrokerManager, uuid: {}", &broker_uuid)
                 }
             )
         )?

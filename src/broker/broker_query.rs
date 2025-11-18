@@ -6,7 +6,7 @@ use crate::paginate::paginate_model::Pagination;
 
 pub async fn post_broker_query(
     pool: &PgPool,
-    broker: BrokerCreate,
+    broker: &BrokerCreate,
     broker_uuid: &Uuid,
 ) -> Result<BrokerResponse, AppError> {
 
@@ -333,7 +333,7 @@ pub async fn put_broker_query(
 
 pub async fn get_broker_count_query(
     pool: &PgPool,
-    port: i32
+    port: &i32
 ) -> Result<Option<i64>, AppError> {
 
     match sqlx::query_scalar!(

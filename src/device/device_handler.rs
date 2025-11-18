@@ -12,7 +12,7 @@ use crate::device::device_query::{get_device_filter, post_device_message_query};
 use crate::error_app::error_app::{AppError, AppMsgError};
 use crate::state::AppState;
 use crate::user::user_query::get_user_by_uuid;
-use crate::device::device_message_model::{DeviceMessageCreateResponse, DeviceScaleCreateResponse};
+use crate::device::device_message_model::{DeviceMessageCreateResponse, DeviceScale, DeviceScaleCreateResponse};
 
 pub async fn device_create(
     device: Json<DeviceCreateRequest>,
@@ -26,7 +26,7 @@ pub async fn device_create(
     let user = get_user_by_uuid(&app_state.db, &token.inf.uuid).await?;
 
     let device = device.into_inner();
-    let device = DeviceCreate::new(device, user.id).await?;
+    let device = DeviceCreate::new(&device, user.id).await?;
 
     let device_filter = DeviceFilter{
         uuid: None,
@@ -63,7 +63,7 @@ pub async fn device_create(
     mqtt_device::components::topic::valid_topic(&topic_compose)
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
-    let (result_device, result_message, result_scale) = post_device_message_query(&app_state.db, device.clone(), topic_compose.clone()).await?;
+    let (result_device, result_message, result_scale) = post_device_message_query(&app_state.db, &device, topic_compose.clone()).await?;
 
     if broker.is_some() && device.device_type_int == 0 {
         let broker = broker.unwrap();
@@ -101,15 +101,15 @@ pub async fn device_create(
             updated_at: result_message.updated_at,
             deleted_at: result_message.deleted_at,
         },
-        scale: result_scale.map(|scale| DeviceScaleCreateResponse {
+        scale: result_scale.iter().map(|scale| DeviceScaleCreateResponse {
             uuid: scale.uuid,
             device_id: scale.device_id,
-            metric: scale.metric,
-            unit: scale.unit,
+            metric: scale.metric.clone(),
+            unit: scale.unit.clone(),
             created_at: scale.created_at,
             updated_at: scale.updated_at,
             deleted_at: scale.deleted_at,
-        }),
+        }).collect()
     };
 
     let _ = create_device_collection(

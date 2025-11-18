@@ -8,6 +8,8 @@ CREATE TABLE devices (
    device_type_text VARCHAR(50) NOT NULL,
    border_type_int INT NOT NULL ,
    border_type_text VARCHAR(50) NOT NULL,
+   sensor_type VARCHAR(50),
+   actuator_type VARCHAR(50),
    device_condition_int INT NOT NULL ,
    device_condition_text VARCHAR(50) NOT NULL,
    mac_address VARCHAR(50) NOT NULL UNIQUE,

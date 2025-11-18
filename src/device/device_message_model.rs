@@ -3,6 +3,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use mqtt_device;
+use crate::device::device_model::DeviceCreateRequest;
 use crate::error_app::error_app::{AppError};
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::FromRow)]
@@ -65,7 +66,7 @@ pub struct DeviceScale {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DeviceScaleCreateRequest {
-    scale: Vec<(String, String)>,
+    pub scale: Vec<(String, String)>,
 }
 
 impl From<web::Json<DeviceScaleCreateRequest>> for DeviceScaleCreateRequest {
@@ -85,20 +86,21 @@ pub struct DeviceScaleCreate {
 }
 
 impl DeviceScaleCreate {
-    pub fn new(param: DeviceScaleCreateRequest) -> Result<Vec<DeviceScaleCreate>, AppError> {
+    pub fn from_request(req: &DeviceCreateRequest) -> Vec<DeviceScaleCreate> {
+        match &req.get_device_create_scale() {
+            Some(scale_items) => scale_items.iter().map(|(metric, unit)| {
+                DeviceScaleCreate {
+                    uuid: Uuid::new_v4(),
+                    metric: metric.clone(),
+                    unit: unit.clone(),
+                }
+            }).collect(),
 
-        let mut result: Vec<DeviceScaleCreate> = Vec::new();
-
-        for (metric, unit) in param.scale {
-            result.push(DeviceScaleCreate {
-                uuid: Uuid::new_v4(),
-                metric,
-                unit,
-            });
+            None => Vec::new(),
         }
-        Ok(result)
     }
 }
+
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -127,7 +129,7 @@ pub struct DeviceMessageCreate {
 }
 
 impl DeviceMessageCreate{
-    pub fn new(params: DeviceMessageCreateRequest)-> Result<DeviceMessageCreate, AppError>{
+    pub fn new(params: &DeviceMessageCreateRequest)-> Result<DeviceMessageCreate, AppError>{
         let uuid = Uuid::new_v4();
 
         mqtt_device::components::payload::validate_payload_size(&params.payload)
@@ -139,7 +141,7 @@ impl DeviceMessageCreate{
         Ok(
             DeviceMessageCreate{
                 uuid,
-                payload: params.payload,
+                payload: params.payload.clone(),
                 qos: params.qos,
                 retained: params.retained,
                 publisher: Some(params.publisher.unwrap_or(false)),

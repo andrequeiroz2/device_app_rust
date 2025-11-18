@@ -50,9 +50,20 @@ pub async fn get_device_filter(
 
 pub async fn post_device_message_query(
     pool: &PgPool,
-    device: DeviceCreate,
+    device: &DeviceCreate,
     topic_compose: String
-) -> Result<(Device, DeviceMessage, Option<DeviceScale>), AppError>{
+) -> Result<(Device, DeviceMessage, Vec<DeviceScale>), AppError>{
+
+    let sensor_type_str = device.sensor_type.clone();
+    let actuator_type_str = device.actuator_type.clone();
+    // let mut sensor_type_str = None;
+    // let mut actuator_type_str = None;
+    //
+    // if let Some(s) = device.sensor_type{
+    //         sensor_type_str = Some(s);
+    // }else if let Some(a) = device.actuator_type {
+    //     actuator_type_str = Some(a);
+    // };
 
     let mut tx: Transaction<'_, Postgres> = pool.begin().await
         .map_err(|e| AppError::DBError(e.to_string()))?;
@@ -70,11 +81,13 @@ pub async fn post_device_message_query(
          device_type_text,
          border_type_int,
          border_type_text,
+         sensor_type,
+         actuator_type,
          device_condition_int,
          device_condition_text,
          mac_address
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING
         id,
         uuid,
@@ -84,6 +97,8 @@ pub async fn post_device_message_query(
         device_type_text,
         border_type_int,
         border_type_text,
+        sensor_type,
+        actuator_type,
         device_condition_int,
         device_condition_text,
         mac_address,
@@ -98,6 +113,8 @@ pub async fn post_device_message_query(
         device.device_type_text,
         device.border_type_int,
         device.border_type_text,
+        sensor_type_str,
+        actuator_type_str,
         device.device_condition_int,
         device.device_condition_text,
         device.mac_address,
@@ -162,7 +179,7 @@ pub async fn post_device_message_query(
         .map_err(|e| AppError::DBError(e.to_string()))?;
 
     // Insert scale
-    let mut inserted_scale: Option<DeviceScale> = None;
+    let mut inserted_scale: Vec<DeviceScale> = Vec::new();
 
     if let Some(scale_list) = device.scale.clone() {
         for scale_item in scale_list {
@@ -197,7 +214,7 @@ pub async fn post_device_message_query(
             .await
             .map_err(|e| AppError::DBError(e.to_string()))?;
 
-            inserted_scale = Some(scale);
+            inserted_scale.push(scale);
         }
     }
 

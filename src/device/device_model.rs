@@ -55,6 +55,8 @@ pub struct Device {
     pub device_type_text: String,
     pub border_type_int: i32,
     pub border_type_text: String,
+    pub sensor_type: Option<String>,
+    pub actuator_type: Option<String>,
     pub device_condition_int: i32,
     pub device_condition_text: String,
     pub mac_address: String,
@@ -68,11 +70,13 @@ pub struct DeviceCreateRequest{
     name: String,
     device_type_str: String,
     border_type_str: String,
-    border_version_str: String,
-    device_condition_str: String,
+    sensor_type: Option<String>,
+    actuator_type: Option<String>,
+    adopted_status: String,
+    // device_condition_str: String,
     mac_address: String,
     message: DeviceMessageCreateRequest,
-    scale: Option<DeviceScaleCreateRequest>
+    scale: Option<Vec<(String, String)>>,
 }
 impl From<web::Json<DeviceCreateRequest>> for DeviceCreateRequest {
     fn from(device: web::Json<DeviceCreateRequest>) -> Self {
@@ -81,12 +85,20 @@ impl From<web::Json<DeviceCreateRequest>> for DeviceCreateRequest {
             name: device.name,
             device_type_str: device.device_type_str,
             border_type_str: device.border_type_str,
-            border_version_str: device.border_version_str,
-            device_condition_str: device.device_condition_str,
+            sensor_type: device.sensor_type,
+            actuator_type: device.actuator_type,
+            adopted_status: device.adopted_status,
+            // device_condition_str: device.device_condition_str,
             mac_address: device.mac_address,
             message: device.message,
             scale: device.scale,
         }
+    }
+}
+
+impl DeviceCreateRequest {
+    pub fn get_device_create_scale(&self) -> &Option<Vec<(String, String)>> {
+        &self.scale
     }
 }
 
@@ -101,6 +113,8 @@ pub struct DeviceCreate {
     pub border_type_int: i32,
     pub border_type_text: String,
     pub mac_address: String,
+    pub sensor_type: Option<String>,
+    pub actuator_type: Option<String>,
     pub device_condition_int: i32,
     pub device_condition_text: String,
     pub message: DeviceMessageCreate,
@@ -108,8 +122,8 @@ pub struct DeviceCreate {
 }
 
 impl DeviceCreate {
-    pub async fn new(params: DeviceCreateRequest, user_id: i32) -> Result<Self, AppError> {
-        
+    pub async fn new(params: &DeviceCreateRequest, user_id: i32) -> Result<Self, AppError> {
+
         let uuid = Uuid::new_v4();
 
         match params.mac_address.parse::<MacAddress>() {
@@ -136,25 +150,45 @@ impl DeviceCreate {
         let border_type_text = border_type.to_string();
 
         //border_condition
-        let device_condition = match DeviceCondition::from_str(&params.device_condition_str){
+        let device_condition = match DeviceCondition::from_str(&params.adopted_status){
             Ok(device_condition) => device_condition,
             Err(err) => Err(AppError::BadRequest(format!("{}", err)))?
         };
+
+        if device_condition != DeviceCondition::Adopted{
+            return Err(AppError::BadRequest("Device condition must be 'adopted'".to_string()))
+        }
+
+       match(&params.sensor_type, &params.actuator_type){
+            (None, None) => {
+                log::error!("file: {}, line: {}, sensor_type or actuator_type type must be specified", file!(), line!());
+                Err(AppError::BadRequest("Sensor or Actuator type must be specified".to_string()))?
+            }
+
+            (Some(_), Some(_)) => {
+                log::error!(
+                    "file: {}, line: {}, sensor_type and actuator_type type must be specified only one: sensor_type: {:#?}, actuator_type: {:#?}", file!(), line!(), &params.sensor_type, &params.actuator_type);
+                Err(AppError::BadRequest("Sensor or Actuator type must be specified".to_string()))?
+            }
+
+            _ => {},
+        };
         
-        let message = DeviceMessageCreate::new(params.message)?;
+        let message = DeviceMessageCreate::new(&params.message)?;
 
         let mut scale: Option<Vec<DeviceScaleCreate>> = None;
 
-        if let Some(scale_param) = params.scale {
-            scale = Some(DeviceScaleCreate::new(scale_param)?);
+        if let Some(scale_param) = &params.scale {
+            scale = Some(DeviceScaleCreate::from_request(&params));
         };
 
-        
         //variables
         let device_condition_int = device_condition.as_int();
         let device_condition_text = device_condition.to_string();
-        let name = params.name;
-        let mac_address = params.mac_address;
+        let name = params.name.clone();
+        let mac_address = params.mac_address.clone();
+        let sensor_type = params.sensor_type.clone();
+        let actuator_type = params.actuator_type.clone();
 
         Ok(
             Self {
@@ -165,6 +199,8 @@ impl DeviceCreate {
                 device_type_text,
                 border_type_int,
                 border_type_text,
+                sensor_type,
+                actuator_type,
                 device_condition_int,
                 device_condition_text,
                 mac_address,
@@ -201,6 +237,10 @@ impl DeviceCreate {
     pub fn get_border_type_text(&self) -> String {
         self.border_type_text.clone()
     }
+
+    pub fn get_sensor_type(&self) -> Option<String> { self.sensor_type.clone() }
+
+    pub fn get_actuator_type(&self) -> Option<String> { self.actuator_type.clone() }
     
     pub fn get_device_condition_int(&self) -> i32 {
         self.device_condition_int
@@ -232,7 +272,7 @@ pub struct DeviceCreateResponse {
     pub updated_at: Option<chrono::DateTime<Utc>>,
     pub deleted_at: Option<chrono::DateTime<Utc>>,
     pub message: DeviceMessageCreateResponse,
-    pub scale: Option<DeviceScaleCreateResponse>,
+    pub scale: Vec<DeviceScaleCreateResponse>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
