@@ -1,12 +1,15 @@
-use log::info;
+use std::collections::BTreeMap;
+use log::{error, info};
 use mongodb::{Client, Collection};
-use mongodb::bson::doc;
+use mongodb::bson::{doc, to_document};
 use mongodb::options::{FindOneOptions, UpdateOptions};
 use mongodb::bson::{DateTime as BsonDateTime};
 use uuid::Uuid;
-use crate::data_store::data_store_device_model::DeviceData;
+use crate::data_store::data_store_device_model::{DeviceData, DeviceMessageReceived};
+use crate::device::device_adoption_tool::DecomposeTopic;
 use crate::device::device_message_model::MessageReceivePayload;
 use crate::error_app::error_app::{AppError, AppMsgError, AppMsgInfError};
+use chrono::{DateTime, Utc};
 
 pub async fn post_device_data_store_query(
     client: &Client,
@@ -78,6 +81,7 @@ pub async fn get_device_with_uuid_data_store_query(
 pub async fn update_device_messages_query(
     client: Client,
     message: &MessageReceivePayload,
+    decompose_topic: &DecomposeTopic
 ) -> Result<(), AppError> {
     info!(
         "file: {}, line: {}, message: {:?}",
@@ -90,18 +94,44 @@ pub async fn update_device_messages_query(
     let collection: Collection<mongodb::bson::Document> = database.collection("devices");
 
     let filter = doc! {
-        "_id": message.device_uuid.to_string(),
-        "user_uuid": message.user_uuid.to_string(),
+        "_id": decompose_topic.device_uuid.to_string(),
+        "user_uuid": decompose_topic.user_uuid.to_string(),
+    };
+
+    let dt = match DateTime::parse_from_rfc3339(&message.timestamp){
+        Ok(dt) => dt,
+        Err(error) => {
+            error!("file: {}, line: {}, error: {}, timestamp: {}", file!(), line!(), error, &message.timestamp);
+            Err(AppError::BadRequest(format!("file: {}, line:{}, Invalid timestamp, timestamp: {}", file!(), line!(), &message.timestamp)))?
+        }
+    };
+
+    let mut map = BTreeMap::new();
+
+    map.insert(
+        message.metric.clone(),
+        DeviceMessageReceived {
+            value: message.payload.clone(),
+            scale: message.scale.clone(),
+            timestamp: dt,
+        },
+    );
+
+    let metric_doc = match to_document(&map){
+        Ok(doc) => doc,
+        Err(error) => {
+            Err(AppError::MongoDBError(AppMsgInfError {
+                file: file!().into(),
+                line: line!(),
+                api_msg_error: "Internal server error".into(),
+                log_msg_error: format!("file: {}, line: {}, error: {}", file!(), line!(), error)
+            }))?
+        }
     };
 
     let update = doc! {
         "$push": {
-            "messages": {
-                "value": message.payload.clone(),
-                "metric": message.metric.clone(),
-                "scale": message.scale.clone(),
-                "timestamp": BsonDateTime::now(),
-            }
+            "messages": metric_doc
         },
         "$set": {
             "updated_at": BsonDateTime::now()
@@ -120,16 +150,16 @@ pub async fn update_device_messages_query(
     })?;
 
     if result.matched_count == 0 {
-        return Err(AppError::NotFound(AppMsgError {
+        Err(AppError::NotFound(AppMsgError {
             api_msg_error: "Device not found".into(),
             log_msg_error: format!(
                 "file: {}, line: {}, Device not found: device_uuid: {}, user_uuid: {}",
                 file!(),
                 line!(),
-                message.device_uuid,
-                message.user_uuid
+                decompose_topic.device_uuid,
+                decompose_topic.user_uuid,
             ),
-        }));
+        }))?;
     }
 
     Ok(())

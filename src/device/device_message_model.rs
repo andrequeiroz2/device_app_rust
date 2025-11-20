@@ -222,9 +222,8 @@ pub struct SubscribeTopicQos {
 #[derive(Debug, Deserialize)]
 pub struct MessageReceivePayload {
     pub topic: String,
-    pub device_uuid: String,
-    pub user_uuid: String,
     pub payload: String,
     pub metric: String,
     pub scale: String,
+    pub timestamp: String,
 }

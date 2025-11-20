@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
-use log::info;
+use log::{error, info};
 use mongodb::bson::{DateTime as BsonDateTime};
 use mongodb::Client;
 use uuid::Uuid;
@@ -12,6 +12,7 @@ use crate::data_store::data_store_tool::bson_to_chrono;
 use crate::error_app::error_app::AppError;
 use crate::state::AppState;
 use crate::user::user_query::get_user_by_uuid;
+use crate::device::device_adoption_tool::device_decompose_topic;
 
 pub async fn create_device_collection(
     app_state: web::Data<AppState>,
@@ -25,7 +26,7 @@ pub async fn create_device_collection(
         device_uuid,
         user_uuid
     );
-
+    
     let device = DeviceData {
         id: device_uuid.to_string(),
         device_uuid: device_uuid.to_string(),
@@ -93,15 +94,23 @@ pub async fn put_device_collection(
     let decode_message = match decode_received_message(message){
         Ok(decode) => decode,
         Err(err) => {
-            info!("Failed to decode message: {:?}", err);
+            error!("file: {}, line: {}, Failed to decode message: {:?}", file!(), line!(), err);
             return;
         }
     };
 
-    match update_device_messages_query(client, &decode_message).await{
+    let decompose_topic = match device_decompose_topic(&decode_message.topic){
+        Ok(decompose) => decompose,
+        Err(err) => {
+            error!("file: {}, line: {}, Failed to decode message: {:?}", file!(), line!(), err);
+            return;
+        }
+    };
+
+    match update_device_messages_query(client, &decode_message, &decompose_topic).await{
         Ok(data) => data,
         Err(err) => {
-            info!("Failed to update device messages: {:?}", err);
+            error!("file: {}, line: {}, Failed to update device messages: {:?}", file!(), line!(), err);
             return;
         }
     };

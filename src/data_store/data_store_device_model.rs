@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{FixedOffset, Utc};
 use serde::{Deserialize, Serialize};
 use mongodb::bson::{DateTime as BsonDateTime};
 use uuid::Uuid;
@@ -12,12 +12,10 @@ pub enum MessageDirection {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DeviceMessage {
-    pub direction: MessageDirection,
-    pub topic: String,
-    pub qos: i32,
-    pub payload: String,
-    pub timestamp: chrono::DateTime<Utc>,
+pub struct DeviceMessageReceived {
+    pub value: String,
+    pub scale: String,
+    pub timestamp: chrono::DateTime<FixedOffset>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -27,7 +25,7 @@ pub struct DeviceData {
     pub device_uuid: String,
     pub user_uuid: String,
     #[serde(default)]
-    pub messages: Vec<DeviceMessage>,
+    pub messages: Vec<DeviceMessageReceived>,
     pub created_at: BsonDateTime,
     pub updated_at: Option<BsonDateTime>,
     pub deleted_at: Option<BsonDateTime>,

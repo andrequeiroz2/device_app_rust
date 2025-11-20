@@ -41,6 +41,8 @@ pub async fn connect(
     );
 
     let subscribers = get_device_message_subscribe_query(pool).await?;
+    info!("file: {}, line: {}: Subscribers: {:?}", file!(), line!(), subscribers);
+
     let subs = build_subscribe_all_topics_qoss(subscribers.clone());
 
     if !subscribers.is_empty() {
@@ -154,7 +156,7 @@ pub async fn connect(
                                 }
 
                                 let _ = broker_change_state(&broker_uuid, true, &pool, true).await;
-                                info!("✅ Reconnected.");
+                                info!("file: {}, line: {}, ✅ Reconnected.", file!(), line!());
 
                                 if !subscribers.is_empty() {
                                     if let Err(err) = client.subscribe_many(&subs.topics, &subs.qoss).await {
