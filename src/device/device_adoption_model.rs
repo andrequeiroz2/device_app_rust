@@ -1,5 +1,4 @@
 use eui48::MacAddress;
-use uuid::Uuid;
 use crate::device::device_border_model::BoarderType;
 use crate::error_app::error_app::AppError;
 use log::error;

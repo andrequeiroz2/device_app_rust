@@ -12,7 +12,6 @@ pub struct DeviceMessage {
     pub uuid: Uuid,
     pub device_id: i32,
     pub topic: String,
-    pub payload: String,
     pub qos: i32,
     pub retained: bool,
     pub publisher: Option<bool>,
@@ -28,26 +27,26 @@ pub struct DeviceMessage {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DeviceMessageCreateRequest {
-    payload: String,
     qos: i32,
     retained: bool,
     publisher: Option<bool>,
     subscriber: Option<bool>,
     command_start: Option<i32>,
     command_end: Option<i32>,
+    command_last: Option<i32>,
 }
 
 impl From<web::Json<DeviceMessageCreateRequest>> for DeviceMessageCreateRequest {
     fn from(message: web::Json<DeviceMessageCreateRequest>) -> Self {
         let message = message.into_inner();
         DeviceMessageCreateRequest{
-            payload: message.payload,
             qos: message.qos,
             retained: message.retained,
             publisher: message.publisher,
             subscriber: message.subscriber,
             command_start: message.command_start,
             command_end: message.command_end,
+            command_last: message.command_last,
         }
     }
 }
@@ -117,7 +116,6 @@ pub struct DeviceScaleCreateResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DeviceMessageCreate {
     pub uuid: Uuid,
-    pub payload: String,
     pub qos: i32,
     pub retained: bool,
     pub publisher: Option<bool>,
@@ -131,17 +129,13 @@ pub struct DeviceMessageCreate {
 impl DeviceMessageCreate{
     pub fn new(params: &DeviceMessageCreateRequest)-> Result<DeviceMessageCreate, AppError>{
         let uuid = Uuid::new_v4();
-
-        mqtt_device::components::payload::validate_payload_size(&params.payload)
-            .map_err(|err| AppError::BadRequest(err.to_string()))?;
-
+        
         mqtt_device::components::qos::Qos::valid_qos(params.qos)
             .map_err(|err| AppError::BadRequest(err.to_string()))?;
         
         Ok(
             DeviceMessageCreate{
                 uuid,
-                payload: params.payload.clone(),
                 qos: params.qos,
                 retained: params.retained,
                 publisher: Some(params.publisher.unwrap_or(false)),
@@ -156,9 +150,6 @@ impl DeviceMessageCreate{
 
     pub fn get_uuid(&self) -> Uuid {
         self.uuid
-    }
-    pub fn get_payload(&self) -> String {
-        self.payload.clone()
     }
     pub fn get_qos(&self) -> i32 {
         self.qos
@@ -191,7 +182,6 @@ pub struct DeviceMessageCreateResponse {
     pub uuid: Uuid,
     pub device_uuid: Uuid,
     pub topic: String,
-    pub payload: String,
     pub qos: i32,
     pub retained: bool,
     pub publisher: Option<bool>,

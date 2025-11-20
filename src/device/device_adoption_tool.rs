@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::error;
 use uuid::Uuid;
 use crate::error_app::error_app::AppError;
 

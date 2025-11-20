@@ -56,14 +56,6 @@ pub async fn post_device_message_query(
 
     let sensor_type_str = device.sensor_type.clone();
     let actuator_type_str = device.actuator_type.clone();
-    // let mut sensor_type_str = None;
-    // let mut actuator_type_str = None;
-    //
-    // if let Some(s) = device.sensor_type{
-    //         sensor_type_str = Some(s);
-    // }else if let Some(a) = device.actuator_type {
-    //     actuator_type_str = Some(a);
-    // };
 
     let mut tx: Transaction<'_, Postgres> = pool.begin().await
         .map_err(|e| AppError::DBError(e.to_string()))?;
@@ -132,7 +124,6 @@ pub async fn post_device_message_query(
           uuid,
           device_id,
           topic,
-          payload,
           qos,
           retained,
           publisher,
@@ -142,13 +133,12 @@ pub async fn post_device_message_query(
           command_last,
           command_last_time
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING
         id,
         uuid,
         device_id,
         topic,
-        payload,
         qos,
         retained,
         publisher,
@@ -164,7 +154,6 @@ pub async fn post_device_message_query(
         device.message.uuid,
         inserted_device.id,
         topic_compose,
-        device.message.payload,
         device.message.qos,
         device.message.retained,
         device.message.publisher,

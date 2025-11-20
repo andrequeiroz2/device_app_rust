@@ -88,7 +88,6 @@ pub async fn device_create(
             uuid: result_message.uuid,
             device_uuid: result_device.uuid,
             topic: result_message.topic,
-            payload: result_message.payload,
             qos: result_message.qos,
             retained: result_message.retained,
             publisher: result_message.publisher,

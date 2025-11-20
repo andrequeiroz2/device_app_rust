@@ -4,7 +4,7 @@ use actix_web_httpauth::extractors::bearer::BearerAuth;
 use log::info;
 use crate::auth::auth_tool::token_info;
 use crate::device::device_adoption_model::DeviceAdoptionRequest;
-use crate::device::device_model::{Device, DeviceFilter};
+use crate::device::device_model::DeviceFilter;
 use crate::device::device_query::get_device_filter;
 use crate::error_app::error_app::AppError;
 use crate::state::AppState;

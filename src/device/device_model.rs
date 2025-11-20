@@ -8,7 +8,7 @@ use crate::device::device_border_model::BoarderType;
 use crate::device::device_type_model::DeviceType;
 use crate::error_app::error_app::AppError;
 use eui48::MacAddress;
-use crate::device::device_message_model::{DeviceMessageCreate, DeviceMessageCreateRequest, DeviceMessageCreateResponse, DeviceScaleCreate, DeviceScaleCreateRequest, DeviceScaleCreateResponse};
+use crate::device::device_message_model::{DeviceMessageCreate, DeviceMessageCreateRequest, DeviceMessageCreateResponse, DeviceScaleCreate, DeviceScaleCreateResponse};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeviceCondition {

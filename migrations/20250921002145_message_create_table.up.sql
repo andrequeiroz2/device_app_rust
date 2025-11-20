@@ -4,7 +4,6 @@ CREATE TABLE messages (
      uuid UUID NOT NULL UNIQUE,
      device_id INT NOT NULL REFERENCES devices(id),
      topic VARCHAR(255) NOT NULL,
-     payload VARCHAR(255) NOT NULL,
      qos INTEGER CHECK (qos IN (0, 1, 2)) NOT NULL,
      retained BOOLEAN NOT NULL,
      publisher BOOLEAN,
