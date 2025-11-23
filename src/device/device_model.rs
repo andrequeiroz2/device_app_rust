@@ -4,7 +4,7 @@ use chrono::Utc;
 use actix_web::web;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::device::device_border_model::BoarderType;
+use crate::device::device_border_model::BoardType;
 use crate::device::device_type_model::DeviceType;
 use crate::error_app::error_app::AppError;
 use eui48::MacAddress;
@@ -53,8 +53,8 @@ pub struct Device {
     pub name: String,
     pub device_type_int: i32,
     pub device_type_text: String,
-    pub border_type_int: i32,
-    pub border_type_text: String,
+    pub board_type_int: i32,
+    pub board_type_text: String,
     pub sensor_type: Option<String>,
     pub actuator_type: Option<String>,
     pub device_condition_int: i32,
@@ -69,11 +69,10 @@ pub struct Device {
 pub struct DeviceCreateRequest{
     name: String,
     device_type_str: String,
-    border_type_str: String,
+    board_type_str: String,
     sensor_type: Option<String>,
     actuator_type: Option<String>,
     adopted_status: String,
-    // device_condition_str: String,
     mac_address: String,
     message: DeviceMessageCreateRequest,
     scale: Option<Vec<(String, String)>>,
@@ -84,11 +83,10 @@ impl From<web::Json<DeviceCreateRequest>> for DeviceCreateRequest {
         DeviceCreateRequest {
             name: device.name,
             device_type_str: device.device_type_str,
-            border_type_str: device.border_type_str,
+            board_type_str: device.board_type_str,
             sensor_type: device.sensor_type,
             actuator_type: device.actuator_type,
             adopted_status: device.adopted_status,
-            // device_condition_str: device.device_condition_str,
             mac_address: device.mac_address,
             message: device.message,
             scale: device.scale,
@@ -110,8 +108,8 @@ pub struct DeviceCreate {
     pub name: String,
     pub device_type_int: i32,
     pub device_type_text: String,
-    pub border_type_int: i32,
-    pub border_type_text: String,
+    pub board_type_int: i32,
+    pub board_type_text: String,
     pub mac_address: String,
     pub sensor_type: Option<String>,
     pub actuator_type: Option<String>,
@@ -141,13 +139,13 @@ impl DeviceCreate {
 
 
         //border_type
-        let border_type = match BoarderType::from_request(&params.border_type_str){
+        let border_type = match BoardType::from_request(&params.board_type_str){
             Ok(border_type) => border_type,
             Err(err) => Err(AppError::BadRequest(format!("{:?}", err)))?
         };
         
-        let border_type_int = border_type.as_int();
-        let border_type_text = border_type.to_string();
+        let board_type_int = border_type.as_int();
+        let board_type_text = border_type.to_string();
 
         //border_condition
         let device_condition = match DeviceCondition::from_str(&params.adopted_status){
@@ -197,8 +195,8 @@ impl DeviceCreate {
                 name,
                 device_type_int,
                 device_type_text,
-                border_type_int,
-                border_type_text,
+                board_type_int,
+                board_type_text,
                 sensor_type,
                 actuator_type,
                 device_condition_int,
@@ -231,11 +229,11 @@ impl DeviceCreate {
     }
     
     pub fn get_border_type_int(&self) -> i32 {
-        self.border_type_int
+        self.board_type_int
     }
     
     pub fn get_border_type_text(&self) -> String {
-        self.border_type_text.clone()
+        self.board_type_text.clone()
     }
 
     pub fn get_sensor_type(&self) -> Option<String> { self.sensor_type.clone() }
@@ -263,8 +261,8 @@ pub struct DeviceCreateResponse {
     pub name: String,
     pub device_type_int: i32,
     pub device_type_text: String,
-    pub border_type_int: i32,
-    pub border_type_text: String,
+    pub board_type_int: i32,
+    pub board_type_text: String,
     pub mac_address: String,
     pub device_condition_int: i32,
     pub device_condition_text: String,

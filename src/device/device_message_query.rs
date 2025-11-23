@@ -1,3 +1,4 @@
+use log::error;
 use sqlx::PgPool;
 use crate::device::device_message_model::DeviceMessageSubscribe;
 use crate::error_app::error_app::AppError;
@@ -24,7 +25,13 @@ pub async fn get_device_message_subscribe_query(
         "#,
     ).fetch_all(pool)
         .await
-        .map_err(|error| AppError::DBError(error.to_string()))?;
+        .map_err(|error| 
+            {
+                error!("file: {}, line: {}, error: {}", file!(), line!(), error);
+                AppError::DBError(error.to_string())
+            }
+        )?;
+        
 
     Ok(result)
 }

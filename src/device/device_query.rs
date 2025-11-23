@@ -1,3 +1,4 @@
+use log::error;
 use sqlx::{PgPool, Postgres, QueryBuilder, Transaction};
 use crate::device::device_model::{Device, DeviceCreate, DeviceFilter};
 use crate::error_app::error_app::{AppError};
@@ -17,8 +18,10 @@ pub async fn get_device_filter(
             name,
             device_type_int,
             device_type_text,
-            border_type_int,
-            border_type_text,
+            board_type_int,
+            board_type_text,
+            sensor_type,
+            actuator_type,
             device_condition_int,
             device_condition_text,
             mac_address,
@@ -43,7 +46,11 @@ pub async fn get_device_filter(
     let opt = query
         .fetch_optional(pool)
         .await
-        .map_err(|e| AppError::DBError(e.to_string()))?;
+        .map_err(|e|
+            {
+                error!("file: {}, line: {}, error: {}", file!(), line!(), e);
+                AppError::DBError(e.to_string())
+            })?;
 
     Ok(opt)
 }
@@ -58,7 +65,10 @@ pub async fn post_device_message_query(
     let actuator_type_str = device.actuator_type.clone();
 
     let mut tx: Transaction<'_, Postgres> = pool.begin().await
-        .map_err(|e| AppError::DBError(e.to_string()))?;
+        .map_err(|e| {
+            error!("file: {}, line: {}, error: {}", file!(), line!(), e);
+            AppError::DBError(e.to_string())
+        })?;
 
     // Insert device
     let inserted_device = sqlx::query_as!(
@@ -71,8 +81,8 @@ pub async fn post_device_message_query(
          name,
          device_type_int,
          device_type_text,
-         border_type_int,
-         border_type_text,
+         board_type_int,
+         board_type_text,
          sensor_type,
          actuator_type,
          device_condition_int,
@@ -87,8 +97,8 @@ pub async fn post_device_message_query(
         name,
         device_type_int,
         device_type_text,
-        border_type_int,
-        border_type_text,
+        board_type_int,
+        board_type_text,
         sensor_type,
         actuator_type,
         device_condition_int,
@@ -103,8 +113,8 @@ pub async fn post_device_message_query(
         device.name,
         device.device_type_int,
         device.device_type_text,
-        device.border_type_int,
-        device.border_type_text,
+        device.board_type_int,
+        device.board_type_text,
         sensor_type_str,
         actuator_type_str,
         device.device_condition_int,
@@ -113,7 +123,7 @@ pub async fn post_device_message_query(
     )
         .fetch_one(&mut *tx)
         .await
-        .map_err(|e| AppError::DBError(e.to_string()))?;
+        .map_err(|e| AppError::DBError(format!("file: {}, line: {}, error: {}", file!(), line!(), e.to_string())))?;
 
     // Insert message
     let inserted_message = sqlx::query_as!(
@@ -165,7 +175,12 @@ pub async fn post_device_message_query(
     )
         .fetch_one(&mut *tx)
         .await
-        .map_err(|e| AppError::DBError(e.to_string()))?;
+        .map_err(|e|
+            {
+                error!("file: {}, line: {}, error: {}", file!(), line!(), e);
+                AppError::DBError(e.to_string())
+            }
+        )?;
 
     // Insert scale
     let mut inserted_scale: Vec<DeviceScale> = Vec::new();
@@ -201,14 +216,24 @@ pub async fn post_device_message_query(
         )
             .fetch_one(&mut *tx)
             .await
-            .map_err(|e| AppError::DBError(e.to_string()))?;
+            .map_err(|e|
+                {
+                    error!("file: {}, line: {}, error: {}", file!(), line!(), e);
+                    AppError::DBError(e.to_string())
+                }
+            )?;
 
             inserted_scale.push(scale);
         }
     }
 
     //commit
-    tx.commit().await.map_err(|e| AppError::DBError(e.to_string()))?;
+    tx.commit().await.map_err(|e|
+        {
+            error!("file: {}, line: {}, error: {}", file!(), line!(), e);
+            AppError::DBError(e.to_string())
+        }
+    )?;
 
     Ok((inserted_device, inserted_message, inserted_scale))
 }

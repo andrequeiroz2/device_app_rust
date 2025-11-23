@@ -1,5 +1,6 @@
 use actix_web::{web, HttpResponse};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
+use log::{info, warn};
 use web::Json;
 use crate::auth::auth_tool::token_info;
 use crate::broker::broker_model::{BrokerManager};
@@ -64,7 +65,7 @@ pub async fn device_create(
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
     let (result_device, result_message, result_scale) = post_device_message_query(&app_state.db, &device, topic_compose.clone()).await?;
-
+    
     if broker.is_some() && device.device_type_int == 0 {
         let broker = broker.unwrap();
         let _ = build_subscribe_topic_qos(broker.uuid, topic_compose, device.message.qos,  manager.clone()).await?;
@@ -76,8 +77,8 @@ pub async fn device_create(
         name: result_device.name,
         device_type_int: result_device.device_type_int,
         device_type_text: result_device.device_type_text,
-        border_type_int: result_device.border_type_int,
-        border_type_text: result_device.border_type_text,
+        board_type_int: result_device.board_type_int,
+        board_type_text: result_device.board_type_text,
         mac_address: result_device.mac_address,
         device_condition_int: result_device.device_condition_int,
         device_condition_text: result_device.device_condition_text,
