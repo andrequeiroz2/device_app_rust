@@ -1,6 +1,6 @@
 use actix_web::web;
 use log::info;
-use mongodb::{Client, Collection, IndexModel};
+use mongodb::{Collection, IndexModel};
 use mongodb::bson::doc;
 use mongodb::options::IndexOptions;
 use crate::data_store::data_store_device_model::DeviceData;

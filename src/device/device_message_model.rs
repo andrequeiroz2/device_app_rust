@@ -177,7 +177,7 @@ impl DeviceMessageCreate{
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::FromRow)]
 pub struct DeviceMessageCreateResponse {
     pub uuid: Uuid,
     pub device_uuid: Uuid,

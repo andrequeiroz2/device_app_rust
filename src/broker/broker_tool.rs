@@ -1,5 +1,5 @@
 use actix_web::web;
-use log::{error, info};
+use log::error;
 use mqtt_device::AsyncClient;
 use mqtt_device::components::will::Will;
 use mqtt_device::create_connection_options::ConnectionOptions;

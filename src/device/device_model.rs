@@ -2,13 +2,16 @@ use core::fmt;
 use std::str::FromStr;
 use chrono::Utc;
 use actix_web::web;
+use actix_web::web::Query;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use crate::device::device_border_model::BoardType;
 use crate::device::device_type_model::DeviceType;
 use crate::error_app::error_app::AppError;
 use eui48::MacAddress;
+use crate::data_store::data_store_device_model::DeviceMessagesOwned;
 use crate::device::device_message_model::{DeviceMessageCreate, DeviceMessageCreateRequest, DeviceMessageCreateResponse, DeviceScaleCreate, DeviceScaleCreateResponse};
+use crate::paginate::paginate_model::{Pagination, PaginationFrom};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeviceCondition {
@@ -271,11 +274,119 @@ pub struct DeviceCreateResponse {
     pub deleted_at: Option<chrono::DateTime<Utc>>,
     pub message: DeviceMessageCreateResponse,
     pub scale: Vec<DeviceScaleCreateResponse>,
+    pub broker_url: String
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DeviceFilter{
     pub uuid: Option<Uuid>,
     pub mac_address: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::FromRow)]
+pub struct DeviceOwnedResponse {
+    pub uuid: Uuid,
+    pub name: String,
+    pub device_type_int: i32,
+    pub device_type_text: String,
+    pub board_type_int: i32,
+    pub board_type_text: String,
+    pub mac_address: String,
+    pub device_condition_int: i32,
+    pub device_condition_text: String,
+    pub created_at: Option<chrono::DateTime<Utc>>,
+    pub updated_at: Option<chrono::DateTime<Utc>>,
+    pub deleted_at: Option<chrono::DateTime<Utc>>,
+    pub messages: DeviceMessageCreateResponse,
+}
+
+
+#[derive(Serialize)]
+pub struct DevicePaginationResponse{
+    pub devices: Vec<DeviceAndMessageResponse>,
+    pub pagination: PaginationFrom,
+    pub total_count: i64,
+    pub total_pages: u32,
+    pub current_page: u32,
+    pub next_page: Option<i64>,
+    pub previous_page: Option<i64>,
+    pub first_page: u32,
+    pub last_page: u32,
+    pub has_next_page: bool,
+}
+
+#[derive(Serialize)]
+pub struct DeviceAndMessageResponse{
+    pub uuid: Uuid,
+    pub user_id: i32,
+    pub name: String,
+    pub device_type_int: i32,
+    pub device_type_text: String,
+    pub board_type_int: i32,
+    pub board_type_text: String,
+    pub sensor_type: Option<String>,
+    pub actuator_type: Option<String>,
+    pub device_condition_int: i32,
+    pub device_condition_text: String,
+    pub mac_address: String,
+    pub created_at: Option<chrono::DateTime<Utc>>,
+    pub updated_at: Option<chrono::DateTime<Utc>>,
+    pub deleted_at: Option<chrono::DateTime<Utc>>,
+    pub message: Option<Vec<DeviceMessagesOwned>>,
+}
+
+impl DevicePaginationResponse{
+    pub fn new(
+        devices: Vec<DeviceAndMessageResponse>,
+        total_count: i64,
+        page: u32,
+        page_size: u32,
+    ) -> Self {
+
+        let total_pages = ((total_count as f64) / (page_size as f64)).ceil() as u32;
+
+        let current_page = page.max(1).min(total_pages.max(1));
+
+        let next_page = if current_page < total_pages {
+            Some((current_page + 1) as i64)
+        } else {
+            None
+        };
+
+        let previous_page = if current_page > 1 {
+            Some((current_page - 1) as i64)
+        } else {
+            None
+        };
+        
+        Self{
+            devices,
+            pagination: PaginationFrom{ page: current_page, page_size },
+            total_count,
+            total_pages,
+            current_page,
+            next_page,
+            previous_page,
+            first_page: 1,
+            last_page: total_pages.max(1),
+            has_next_page: next_page.is_some(),
+        }
+
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DevicePaginationFilter {
+    #[serde(flatten)]
+    pub pagination: Pagination,
+}
+
+impl From<Query<DevicePaginationFilter>> for DevicePaginationFilter {
+    fn from(filter: Query<DevicePaginationFilter>) -> Self {
+
+        DevicePaginationFilter{
+            pagination: filter.pagination.clone(),
+        }
+    }
 }
 

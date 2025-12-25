@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use chrono::{FixedOffset, Utc};
 use serde::{Deserialize, Serialize};
 use mongodb::bson::{DateTime as BsonDateTime};
@@ -39,4 +40,10 @@ pub struct DeviceDataStoreResponse {
     pub created_at: chrono::DateTime<Utc>,
     pub updated_at: Option<chrono::DateTime<Utc>>,
     pub deleted_at: Option<chrono::DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeviceMessagesOwned {
+    pub device_uuid: String,
+    pub messages: HashMap<String, DeviceMessageReceived>,
 }

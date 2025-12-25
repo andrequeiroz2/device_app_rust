@@ -1,8 +1,10 @@
 use log::error;
+use std::vec::Vec;
 use sqlx::{PgPool, Postgres, QueryBuilder, Transaction};
-use crate::device::device_model::{Device, DeviceCreate, DeviceFilter};
+use crate::device::device_model::{Device, DeviceCreate, DeviceFilter, DevicePaginationFilter};
 use crate::error_app::error_app::{AppError};
 use crate::device::device_message_model::{DeviceMessage, DeviceScale};
+use crate::paginate::paginate_model::Pagination;
 
 pub async fn get_device_filter(
     pool: &PgPool,
@@ -236,4 +238,96 @@ pub async fn post_device_message_query(
     )?;
 
     Ok((inserted_device, inserted_message, inserted_scale))
+}
+
+pub async fn get_devices_owned_by_user(
+    pool: &PgPool,
+    user_id: i32,
+    pagination: &DevicePaginationFilter,
+) -> Result<Vec<Device>, AppError>{
+
+    let mut builder = QueryBuilder::new(
+        r#"
+        SELECT
+            id,
+            uuid,
+            user_id,
+            name,
+            device_type_int,
+            device_type_text,
+            board_type_int,
+            board_type_text,
+            sensor_type,
+            actuator_type,
+            device_condition_int,
+            device_condition_text,
+            mac_address,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM devices
+        WHERE deleted_at IS NULL "#,
+    );
+
+    builder.push(" AND user_id = ");
+    builder.push_bind(user_id);
+
+    println!("SQL: {}", builder.sql());
+
+    //Pagination
+    let page: String;
+    let page_size: String;
+
+    if pagination.pagination.page.is_empty(){
+        page = "1".to_string();
+    }else{
+        page = pagination.pagination.page.clone();
+    };
+
+    if pagination.pagination.page_size.is_empty(){
+        page_size = "10".to_string();
+    }else{
+        page_size = pagination.pagination.page_size.clone();
+    };
+
+    let pagination = match Pagination::new(
+        page,
+        page_size,
+    ){
+        Ok(result) => result,
+        Err(err) => Err(err)?
+    };
+
+    let offset = (pagination.page.saturating_sub(1) * pagination.page_size) as i64;
+
+    builder.push(" ORDER BY id ASC ");
+    builder.push(" LIMIT ").push_bind(pagination.page_size as i64);
+    builder.push(" OFFSET ").push_bind(offset);
+
+    let query = builder.build_query_as::<Device>();
+
+    let devices =  match query.fetch_all(pool).await{
+        Ok(result) => result,
+        Err(err) => {
+            log::error!("file: {}, line: {}, error: {}", file!(), line!(), err);
+            Err(AppError::DBError(err.to_string()))? }
+    };
+        Ok(devices)
+}
+
+
+pub async fn get_device_count_total_owned_user(pool: &PgPool, user_id: i32) -> Result<i64, AppError> {
+    match sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM devices WHERE deleted_at IS NULL and user_id = $1",
+        user_id
+    ).fetch_one(pool)
+        .await{
+        Ok(result) => {
+            match result {
+                Some(count) => Ok(count),
+                None => Ok(0)
+            }
+        },
+        Err(error) => Err(AppError::DBError(error.to_string()))?
+    }
 }

@@ -22,7 +22,6 @@ use crate::broker::broker_route::broker_cfg;
 use crate::data_store::data_store_device_route::data_store_device_cfg;
 use crate::database::connection_mongo::init_devices_collection;
 use crate::device::device_route::device_cfg;
-use crate::state::app_state;
 use crate::timezone::timezone_route::timezone_cfg;
 
 #[actix_web::main]

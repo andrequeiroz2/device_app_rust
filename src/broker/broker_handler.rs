@@ -1,10 +1,9 @@
-use std::sync::Arc;
 use actix_web::{web, HttpResponse};
 use log::info;
 use uuid::Uuid;
 use web::Json;
 use crate::broker::broker_model::{BrokerCreate, BrokerFilter, BrokerManager, BrokerUpdate};
-use crate::broker::broker_query::{delete_broker_query, get_broker_count_query, get_broker_query, get_broker_update_check_query, get_broker_with_uuid_query, post_broker_query, put_broker_query, put_broker_state_query};
+use crate::broker::broker_query::{delete_broker_query, get_broker_count_query, get_broker_query, get_broker_update_check_query, get_broker_with_uuid_query, post_broker_query, put_broker_query};
 use crate::error_app::error_app::{AppError, AppMsgError};
 use crate::state::AppState;
 use crate::broker::broker_connection as mod_broker_connection;

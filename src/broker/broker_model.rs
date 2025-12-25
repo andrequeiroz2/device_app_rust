@@ -156,7 +156,7 @@ pub struct BrokerFilter {
     pub pagination: Pagination,
 }
 
-impl From<web::Query<BrokerFilter>> for BrokerFilter {
+impl From<Query<BrokerFilter>> for BrokerFilter {
     fn from(filter: Query<BrokerFilter>) -> Self {
 
         BrokerFilter{

@@ -1,15 +1,16 @@
 use std::collections::BTreeMap;
 use log::{error, info};
 use mongodb::{Client, Collection};
-use mongodb::bson::{doc, to_document};
-use mongodb::options::{FindOneOptions, UpdateOptions};
+use mongodb::bson::{doc, to_document, from_document, Bson};
+use mongodb::options::FindOneOptions;
 use mongodb::bson::{DateTime as BsonDateTime};
 use uuid::Uuid;
-use crate::data_store::data_store_device_model::{DeviceData, DeviceMessageReceived};
+use crate::data_store::data_store_device_model::{DeviceData, DeviceMessageReceived, DeviceMessagesOwned};
 use crate::device::device_adoption_tool::DecomposeTopic;
 use crate::device::device_message_model::MessageReceivePayload;
 use crate::error_app::error_app::{AppError, AppMsgError, AppMsgInfError};
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
+use futures_util::TryStreamExt;
 
 pub async fn post_device_data_store_query(
     client: &Client,
@@ -138,8 +139,6 @@ pub async fn update_device_messages_query(
         }
     };
 
-    let update_options = UpdateOptions::builder().upsert(false).build();
-
     let result = collection.update_one(filter, update).await.map_err(|e| {
         AppError::MongoDBError(AppMsgInfError {
             file: file!().into(),
@@ -163,4 +162,157 @@ pub async fn update_device_messages_query(
     }
 
     Ok(())
+}
+
+pub async fn get_message_data_store_query(
+    client: &Client,
+    device_uuids: Vec<Uuid>,
+)-> Result<Vec<DeviceMessagesOwned>, AppError>{
+
+    info!("file: {}, line: {}, devices_uuid: {:#?}",
+        file!(),
+        line!(),
+        device_uuids,
+    );
+
+    let database = client.database("devices");
+
+    let devices_uuid: Vec<String> = device_uuids
+        .iter()
+        .map(|u| u.to_string())
+        .collect();
+
+    let pipeline = vec![
+        //match - usando device_uuid ou _id como fallback
+        doc! {
+            "$match": {
+                "$or": [
+                    { "device_uuid": { "$in": &devices_uuid } },
+                    { "_id": { "$in": &devices_uuid } }
+                ],
+                "deleted_at": Bson::Null
+            }
+        },
+
+        //unwind messages
+        doc! {
+            "$unwind": "$messages"
+        },
+
+        //use device_uuid if exists, or _id
+        doc! {
+            "$project": {
+                "device_uuid": {
+                    "$ifNull": ["$device_uuid", "$_id"]
+                },
+                "message": { "$objectToArray": "$messages" }
+            }
+        },
+
+        //unwind message
+        doc! {
+            "$unwind": "$message"
+        },
+
+        //sort for timestamp desc
+        doc! {
+            "$sort": {
+                "message.v.timestamp": -1
+            }
+        },
+
+        //group for a device + type
+        doc! {
+            "$group": {
+                "_id": {
+                    "device_uuid": "$device_uuid",
+                    "type": "$message.k"
+                },
+                "last_value": { "$first": "$message.v" }
+            }
+        },
+
+        doc! {
+            "$match": {
+                "_id.type": { "$ne": Bson::Null },
+                "last_value": { "$ne": Bson::Null }
+            }
+        },
+
+        doc! {
+            "$group": {
+                "_id": "$_id.device_uuid",
+                "messages": {
+                    "$push": {
+                        "k": "$_id.type",
+                        "v": {
+                            "value": "$last_value.value",
+                            "scale": "$last_value.scale",
+                            "timestamp": "$last_value.timestamp"
+                        }
+                    }
+                }
+            }
+        },
+        //project final
+        doc! {
+            "$project": {
+                "_id": 0,
+                "device_uuid": "$_id",
+                "messages": { "$arrayToObject": "$messages" }
+            }
+        },
+    ];
+
+    let collection: Collection<mongodb::bson::Document> = database.collection("devices");
+
+    let cursor = match collection
+        .aggregate(pipeline)
+        .await{
+            Ok(cursor) => cursor,
+            Err(e) => Err(AppError::MongoDBError(
+                AppMsgInfError{
+                    file: file!().to_string(),
+                    line: line!(),
+                    api_msg_error: "Internal server error".into(),
+                    log_msg_error: e.to_string(),
+                }))?,
+        };
+    
+    let results: Vec<mongodb::bson::Document> =
+        match cursor.try_collect().await{
+            Ok(docs) => docs,
+            Err(e) => Err(AppError::MongoDBError(
+                AppMsgInfError{
+                    file: file!().to_string(),
+                    line: line!(),
+                    api_msg_error: "Internal server error".into(),
+                    log_msg_error: e.to_string(),
+                }))?,
+        };
+
+
+    let mut device_messages = Vec::with_capacity(results.len());
+    device_messages.extend(
+        results
+            .into_iter()
+            .filter_map(|doc| {
+                match from_document::<DeviceMessagesOwned>(doc) {
+                    Ok(device_msg) => Some(device_msg),
+                    Err(e) => {
+                        error!("file: {}, line: {}, Error convert document: {}", file!(), line!(), e);
+                        None
+                    }
+                }
+            }
+        )
+    );
+
+    info!("file: {}, line: {}, device_messages: {:#?}",
+        file!(),
+        line!(),
+        device_messages,
+    );
+
+    Ok(device_messages)
 }
