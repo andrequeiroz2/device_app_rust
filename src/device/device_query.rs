@@ -3,8 +3,44 @@ use std::vec::Vec;
 use sqlx::{PgPool, Postgres, QueryBuilder, Transaction};
 use crate::device::device_model::{Device, DeviceCreate, DeviceFilter, DevicePaginationFilter};
 use crate::error_app::error_app::{AppError};
-use crate::device::device_message_model::{DeviceMessage, DeviceScale};
+use crate::device::device_message_model::{DeviceMessage, DeviceMessageCreateResponse, DeviceScale};
 use crate::paginate::paginate_model::Pagination;
+
+pub async fn get_device_topic_filter_query(
+    pool: &PgPool,
+    device_filter: &Vec<i32>,
+)-> Result<Vec<DeviceMessageCreateResponse>, AppError>{
+    
+    match sqlx::query_as!(
+        DeviceMessageCreateResponse,
+        r#"
+            SELECT
+                m.uuid,
+                d.uuid as "device_uuid!",
+                m.topic,
+                m.qos,
+                m.retained,
+                m.publisher,
+                m.subscriber,
+                m.command_start,
+                m.command_end,
+                m.command_last,
+                m.command_last_time,
+                m.created_at,
+                m.updated_at,
+                m.deleted_at
+            FROM messages m
+            INNER JOIN devices d ON m.device_id = d.id
+            WHERE m.device_id = ANY($1)
+            AND m.deleted_at IS NULL
+            AND d.deleted_at IS NULL
+        "#,
+        device_filter as &[i32]
+    ).fetch_all(pool).await{
+        Ok(result) => Ok(result),
+        Err(err) => Err(AppError::DBError(format!("{}", err)))?,
+    }
+}
 
 pub async fn get_device_filter(
     pool: &PgPool,

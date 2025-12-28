@@ -18,6 +18,7 @@ pub async fn create_device_collection(
     app_state: web::Data<AppState>,
     device_uuid: &Uuid,
     user_uuid: &Uuid,
+    topic: &String
 ) -> Result<(), AppError> {
 
     info!("file: {}, lime: {}, device_uuid: {}, user_uuid: {}",
@@ -31,6 +32,7 @@ pub async fn create_device_collection(
         id: device_uuid.to_string(),
         device_uuid: device_uuid.to_string(),
         user_uuid: user_uuid.to_string(),
+        topic: topic.into(),
         messages: vec![],
         created_at: BsonDateTime::now(),
         updated_at: None,

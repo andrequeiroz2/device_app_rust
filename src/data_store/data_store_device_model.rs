@@ -25,6 +25,7 @@ pub struct DeviceData {
     pub id: String,
     pub device_uuid: String,
     pub user_uuid: String,
+    pub topic: String,
     #[serde(default)]
     pub messages: Vec<DeviceMessageReceived>,
     pub created_at: BsonDateTime,

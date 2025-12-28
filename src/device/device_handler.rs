@@ -10,7 +10,7 @@ use crate::data_store::data_store_device_handler::create_device_collection;
 use crate::data_store::data_store_device_query::get_message_data_store_query;
 use crate::device::device_adoption_tool::device_compose_topic;
 use crate::device::device_model::{DeviceAndMessageResponse, DeviceCreate, DeviceCreateRequest, DeviceCreateResponse, DeviceFilter, DevicePaginationFilter, DevicePaginationResponse};
-use crate::device::device_query::{get_device_filter, post_device_message_query, get_devices_owned_by_user, get_device_count_total_owned_user};
+use crate::device::device_query::{get_device_filter, post_device_message_query, get_devices_owned_by_user, get_device_count_total_owned_user, get_device_topic_filter_query};
 use crate::error_app::error_app::{AppError, AppMsgError};
 use crate::state::AppState;
 use crate::user::user_query::get_user_by_uuid;
@@ -82,7 +82,7 @@ pub async fn device_create(
     let (result_device, result_message, result_scale) = post_device_message_query(&app_state.db, &device, topic_compose.clone()).await?;
     
     if device.device_type_int == 0 {
-        let _ = build_subscribe_topic_qos(broker.uuid, topic_compose, device.message.qos,  manager.clone()).await?;
+        let _ = build_subscribe_topic_qos(broker.uuid, topic_compose.clone(), device.message.qos,  manager.clone()).await?;
     }
     
     let broker_url = format!("{}:{}", broker.host, broker.port);
@@ -133,6 +133,7 @@ pub async fn device_create(
         app_state,
         &result.uuid,
         &result.user_uuid,
+        &topic_compose
     ).await?;
 
     Ok(HttpResponse::Ok().json(&result))
@@ -174,6 +175,18 @@ pub async fn devices_owned_by_user(
         })
     .collect();
 
+    let device_ids: Vec<i32> = devices.iter().map(|d| d.id.clone()).collect();
+    let topic_filter_query = match get_device_topic_filter_query(&app_state.db, &device_ids).await{
+        Ok(topic_filter_query) => topic_filter_query,
+        Err(err) => Err(err)?
+    };
+
+    // Create HashMap for map device_uuid -> topic
+    let topic_map: HashMap<String, String> = topic_filter_query
+        .iter()
+        .map(|msg| (msg.device_uuid.to_string(), msg.topic.clone()))
+        .collect();
+
     let devices_with_messages: Vec<DeviceAndMessageResponse> = devices
         .iter()
         .map(|device| {
@@ -184,9 +197,25 @@ pub async fn devices_owned_by_user(
                     messages: msg.messages.clone(),
                 }]
             });
-            DeviceAndMessageResponse {
+
+            // Get topic whit device.uuid == device_uuid in DeviceMessageCreateResponse
+            let topic = topic_map
+                .get(&device_uuid_str)
+                .cloned()
+                .ok_or_else(|| AppError::NotFound(AppMsgError {
+                    api_msg_error: format!("Topic not found for device_uuid: {}, device_name: {}", device.uuid, device.name),
+                    log_msg_error: format!(
+                        "file: {}, line: {}, Topic not found for device_uuid: {}, device_name: {}", file!(), line!(), device.uuid, device.name
+                    ),
+                }));
+
+            let topic = match topic {
+                Err(err) => Err(err)?,
+                Ok(topic) => topic
+            };
+
+            Ok(DeviceAndMessageResponse {
                 uuid: device.uuid,
-                user_id: device.user_id,
                 name: device.name.clone(),
                 device_type_int: device.device_type_int,
                 device_type_text: device.device_type_text.clone(),
@@ -197,13 +226,14 @@ pub async fn devices_owned_by_user(
                 device_condition_int: device.device_condition_int,
                 device_condition_text: device.device_condition_text.clone(),
                 mac_address: device.mac_address.clone(),
+                topic,
                 message: messages,
                 created_at: device.created_at,
                 updated_at: device.updated_at,
                 deleted_at: device.deleted_at,
-            }
+            })
         })
-    .collect();
+        .collect::<Result<Vec<DeviceAndMessageResponse>, AppError>>()?;
 
     // Converter paginação de String para u32
     let page: String;

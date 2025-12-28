@@ -318,7 +318,6 @@ pub struct DevicePaginationResponse{
 #[derive(Serialize)]
 pub struct DeviceAndMessageResponse{
     pub uuid: Uuid,
-    pub user_id: i32,
     pub name: String,
     pub device_type_int: i32,
     pub device_type_text: String,
@@ -328,6 +327,7 @@ pub struct DeviceAndMessageResponse{
     pub actuator_type: Option<String>,
     pub device_condition_int: i32,
     pub device_condition_text: String,
+    pub topic: String,
     pub mac_address: String,
     pub created_at: Option<chrono::DateTime<Utc>>,
     pub updated_at: Option<chrono::DateTime<Utc>>,
